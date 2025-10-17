@@ -2,7 +2,8 @@
 
 An interactive resume builder that allows users to create tailored resumes for different companies and job positions.
 
-![Alt text](images/image.png)
+![Google](images/image1.png)
+![Switch to Meta](images/image2.png)
 
 ## Project Overview
 
