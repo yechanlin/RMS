@@ -4,7 +4,7 @@ import ControlPanel from './ControlPanel';
 import apiService from '../services/api';
 
 // icons
-import { FaUpload } from "react-icons/fa";
+import { FaUpload, FaTimes } from "react-icons/fa";
 
 export default function CareerFlowDiagram() {
   const [nodes, setNodes] = useState([
@@ -33,6 +33,9 @@ export default function CareerFlowDiagram() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showResumePopup, setShowResumePopup] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [tailoredResumes, setTailoredResumes] = useState([]);
 
   // Load data from backend on component mount
   useEffect(() => {
@@ -44,18 +47,21 @@ export default function CareerFlowDiagram() {
     setError(null);
     try {
       console.log('Loading data from backend...');
-      const [companiesData, jobsData, latestCVData] = await Promise.all([
+      const [companiesData, jobsData, latestCVData, tailoredResumesData] = await Promise.all([
         apiService.getCompanies(),
         apiService.getJobs(),
-        apiService.getLatestCV().catch(() => null) // Don't fail if no CV exists
+        apiService.getLatestCV().catch(() => null), // Don't fail if no CV exists
+        apiService.getTailoredResumes().catch(() => []) // Don't fail if no tailored resumes exist
       ]);
       
       console.log('Companies data:', companiesData);
       console.log('Jobs data:', jobsData);
       console.log('Latest CV data:', latestCVData);
+      console.log('Tailored resumes data:', tailoredResumesData);
       
       setCompanies(companiesData);
       setJobs(jobsData);
+      setTailoredResumes(tailoredResumesData);
       
       // Set uploaded CV if one exists
       if (latestCVData && latestCVData.filename) {
@@ -69,7 +75,7 @@ export default function CareerFlowDiagram() {
       }
       
       // Sync nodes with backend data
-      syncNodesWithBackendData(companiesData, jobsData);
+      syncNodesWithBackendData(companiesData, jobsData, tailoredResumesData);
       console.log('Data loaded successfully');
     } catch (err) {
       console.error('Failed to load data from backend:', err);
@@ -79,7 +85,7 @@ export default function CareerFlowDiagram() {
     }
   };
 
-  const syncNodesWithBackendData = (companiesData, jobsData) => {
+  const syncNodesWithBackendData = (companiesData, jobsData, tailoredResumesData = []) => {
     const baseNode = { 
       id: 1, 
       label: 'Upload base cv here', 
@@ -121,7 +127,40 @@ export default function CareerFlowDiagram() {
       };
     }).filter(Boolean);
 
-    const allNodes = [baseNode, ...companyNodes, ...jobNodes];
+    // Create tailored resume nodes
+    const tailoredNodes = [];
+    const jobTailoredCounts = {};
+    
+    tailoredResumesData.forEach((resume) => {
+      const jobNode = jobNodes.find(jn => jn.backendId === resume.job);
+      if (!jobNode) return;
+      
+      // Count existing tailored resumes for this job
+      if (!jobTailoredCounts[jobNode.id]) {
+        jobTailoredCounts[jobNode.id] = 0;
+      }
+      
+      tailoredNodes.push({
+        id: `tailored_${resume.id}`,
+        label: 'Tailored Resume',
+        x: jobNode.x + 350,
+        y: jobNode.y + (jobTailoredCounts[jobNode.id] * 180),
+        color: 'bg-gradient-to-r from-orange-500 to-orange-600',
+        type: 'tailored',
+        parentId: jobNode.id,
+        backendId: resume.id,
+        backendData: {
+          file_path: resume.file_path,
+          tailored_resume: resume.tailored_content,
+          company: resume.company_name,
+          created_at: resume.created_at
+        }
+      });
+      
+      jobTailoredCounts[jobNode.id]++;
+    });
+
+    const allNodes = [baseNode, ...companyNodes, ...jobNodes, ...tailoredNodes];
     setNodes(allNodes);
 
     // Create connections
@@ -131,6 +170,9 @@ export default function CareerFlowDiagram() {
     });
     jobNodes.forEach(jobNode => {
       connections.push({ from: jobNode.parentId, to: jobNode.id });
+    });
+    tailoredNodes.forEach(tailoredNode => {
+      connections.push({ from: tailoredNode.parentId, to: tailoredNode.id });
     });
     setConnections(connections);
   };
@@ -157,6 +199,11 @@ export default function CareerFlowDiagram() {
       xOffset = 350;
       ySpacing = 80;
       baseY = 100;
+    } else if (nodeType === 'role') {
+      // For tailored resumes under role nodes
+      xOffset = 350;
+      ySpacing = 80;
+      baseY = parentNode.y;
     } else {
       xOffset = 350;
       ySpacing = 120;
@@ -247,6 +294,42 @@ export default function CareerFlowDiagram() {
       setError(`Failed to create ${nodeType}: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const addTailoredResumeNode = (parentRoleNodeId, payload) => {
+    const parentNode = nodes.find(n => n.id === parentRoleNodeId);
+    if (!parentNode) return;
+    
+    // Count existing tailored resume children for this parent
+    const existingTailoredCount = nodes.filter(n => 
+      n.parentId === parentRoleNodeId && n.type === 'tailored'
+    ).length;
+    
+    const newNode = {
+      id: `tailored_${Date.now()}`,
+      label: 'Tailored Resume',
+      x: parentNode.x + 350,
+      y: parentNode.y + (existingTailoredCount * 180),
+      color: 'bg-gradient-to-r from-orange-500 to-orange-600',
+      type: 'tailored',
+      parentId: parentRoleNodeId,
+      backendId: null,
+      backendData: payload,
+    };
+    setNodes([...nodes, newNode]);
+    setConnections([...connections, { from: parentRoleNodeId, to: newNode.id }]);
+    setSelectedNode(newNode.id);
+    
+    // Add to tailored resumes state if it has backend data
+    if (payload.id) {
+      setTailoredResumes([...tailoredResumes, {
+        id: payload.id,
+        job: parentRoleNodeId.replace('job_', ''),
+        file_path: payload.file_path,
+        tailored_content: payload.tailored_resume,
+        created_at: payload.created_at
+      }]);
     }
   };
 
@@ -457,7 +540,10 @@ export default function CareerFlowDiagram() {
     const type = getNodeType(node);
     if (type === 'base') return true;
     if (type === 'company') return true;
+    // Show roles under expanded company
     if (type === 'role' && expandedCompanyId && node.parentId === expandedCompanyId) return true;
+    // Show children of currently selected node (e.g., tailored resume under role)
+    if (selectedNode && node.parentId === selectedNode) return true;
     return false;
   });
 
@@ -481,6 +567,7 @@ export default function CareerFlowDiagram() {
         isDragging={isDragging}
         handlePanelMouseDown={handlePanelMouseDown}
         addChildNode={addChildNode}
+        addTailoredResumeNode={addTailoredResumeNode}
         deleteNode={deleteNode}
         setSelectedNode={setSelectedNode}
         getNodeType={getNodeType}
@@ -532,7 +619,10 @@ export default function CareerFlowDiagram() {
               ? 'bg-gradient-to-r from-blue-500 to-blue-600'
               : nodeType === 'company'
               ? 'bg-gradient-to-r from-green-500 to-green-600'
+              : node.type === 'tailored'
+              ? 'bg-gradient-to-r from-orange-600 to-orange-900'
               : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
+            const isTailored = node.type === 'tailored';
             return (
               <div
                 key={node.id}
@@ -554,6 +644,94 @@ export default function CareerFlowDiagram() {
                 {node.id === 1 && <FaUpload />}
                 {node.label}
               </div>
+              {isTailored && node.backendData && (
+                <div className="mt-2 space-y-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const path = node.backendData.file_path;
+                      if (!path) return;
+                      // Use direct media URL with proper headers
+                      const link = document.createElement('a');
+                      link.href = `http://localhost:8000/media/${path}`;
+                      link.target = '_blank';
+                      link.click();
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs"
+                  >
+                    View Resume
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const path = node.backendData.file_path;
+                      if (!path) return;
+                      
+                      try {
+                        const response = await fetch(`http://localhost:8000/media/${path}`);
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'tailored_resume.pdf';
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                      } catch (error) {
+                        console.error('Download failed:', error);
+                      }
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const roleNode = nodes.find(n => n.id === node.parentId);
+                      const companyNode = nodes.find(n => n.id === roleNode?.parentId);
+                      if (!uploadedCV || !companyNode || !roleNode) return;
+                      
+                      try {
+                        // Get the actual CV file from backend
+                        const latestCV = await apiService.getLatestCV();
+                        if (!latestCV || !latestCV.id) {
+                          console.error('No CV found');
+                          return;
+                        }
+                        
+                        const response = await fetch(`http://localhost:8000/api/resumes/base-cv/${latestCV.id}/download/`);
+                        if (!response.ok) {
+                          throw new Error('Failed to download CV');
+                        }
+                        
+                        const blob = await response.blob();
+                        const formCv = new File([blob], latestCV.filename, { type: latestCV.content_type });
+                        
+                        const result = await apiService.tailorResume({
+                          cv: formCv,
+                          company: companyNode.label,
+                          job_description: roleNode.backendData?.description || ''
+                        });
+                        const normalizedPath = (result.file_path || '').replace(/\\\\/g, '/').replace(/\\/g, '/');
+                        addTailoredResumeNode(roleNode.id, {
+                          tailored_resume: result.tailored_resume,
+                          file_path: normalizedPath,
+                          company: result.company,
+                          created_at: Date.now()
+                        });
+                      } catch (apiErr) {
+                        console.error('Failed to create new tailored resume:', apiErr);
+                      }
+                    }}
+                    className="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-3 py-1 rounded text-xs"
+                  >
+                    Create new
+                  </button>
+                </div>
+              )}
               {node.id === 1 && (
                 <div className="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                   START
@@ -563,6 +741,30 @@ export default function CareerFlowDiagram() {
           )})}
         </div>
       </div>
+
+      {/* Resume Popup */}
+      {showResumePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold">Tailored Resume</h3>
+              <button
+                onClick={() => setShowResumePopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={resumeUrl}
+                className="w-full h-full"
+                title="Resume Preview"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

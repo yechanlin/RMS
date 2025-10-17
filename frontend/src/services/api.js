@@ -21,7 +21,19 @@ class ApiService {
       console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          }
+        } catch (e) {
+          // If we can't parse JSON, use the status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       // Handle empty responses
@@ -135,6 +147,33 @@ class ApiService {
 
   async getCVStats() {
     return this.request('/resumes/base-cv/stats/');
+  }
+
+  // Tailor resume API
+  async tailorResume({ cv, company, job_description }) {
+    const formData = new FormData();
+    formData.append('cv', cv);
+    formData.append('company', company);
+    formData.append('job_description', job_description);
+
+    console.log('Tailor resume request:', {
+      cv: cv?.name || 'No file',
+      company,
+      job_description: job_description?.substring(0, 100) + '...'
+    });
+
+    return this.request('/resumes/tailor-resume/', {
+      method: 'POST',
+      headers: {}, // Let the browser set multipart boundary automatically
+      body: formData,
+    });
+  }
+
+  // Tailored resumes API
+  async getTailoredResumes(jobId = null) {
+    const url = jobId ? `/resumes/tailored-resumes/?job_id=${jobId}` : '/resumes/tailored-resumes/';
+    const response = await this.request(url);
+    return response.results || response;
   }
 }
 
