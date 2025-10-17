@@ -21,13 +21,14 @@ export default function CareerFlowDiagram() {
 
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [showAddChild, setShowAddChild] = useState(false);
+  // Remove showAddChild state
   const [newNodeLabel, setNewNodeLabel] = useState('');
   const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [uploadedCV, setUploadedCV] = useState(null);
   const [expandedCompanyId, setExpandedCompanyId] = useState(null);
+  const [continuousAdd, setContinuousAdd] = useState(false);
 
   const getNodeType = (node) => {
     if (node.type === 'base') return 'base';
@@ -66,7 +67,7 @@ export default function CareerFlowDiagram() {
 
     const parentNode = nodes.find(n => n.id === selectedNode);
     const position = calculateChildPosition(parentNode);
-    
+
     const newNode = {
       id: Math.max(...nodes.map(n => n.id)) + 1,
       label: newNodeLabel,
@@ -76,16 +77,15 @@ export default function CareerFlowDiagram() {
       type: 'child',
       parentId: selectedNode
     };
-    
+
     setNodes([...nodes, newNode]);
     setConnections([...connections, { from: selectedNode, to: newNode.id }]);
     setNewNodeLabel('');
-    setShowAddChild(false);
+    // No need to hide textbox
   };
 
   const handleNodeClick = (id) => {
     setSelectedNode(id);
-    setShowAddChild(true);
     const node = nodes.find(n => n.id === id);
     const nodeType = getNodeType(node);
     if (nodeType === 'company') {
@@ -113,8 +113,7 @@ export default function CareerFlowDiagram() {
     
     setNodes(nodes.filter(n => !toDelete.has(n.id)));
     setConnections(connections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)));
-    setSelectedNode(null);
-    setShowAddChild(false);
+  setSelectedNode(null);
   };
 
   const generatePath = (from, to) => {
@@ -176,7 +175,7 @@ export default function CareerFlowDiagram() {
 
   return (
     <div 
-      className="relative w-full h-screen bg-gray-900 overflow-hidden"
+      className="relative w-full h-screen bg-gray-900 overflow-hidden py-4"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
@@ -184,7 +183,6 @@ export default function CareerFlowDiagram() {
       <ControlPanel 
         nodes={nodes}
         selectedNode={selectedNode}
-        showAddChild={showAddChild}
         newNodeLabel={newNodeLabel}
         setNewNodeLabel={setNewNodeLabel}
         panelPosition={panelPosition}
@@ -193,16 +191,17 @@ export default function CareerFlowDiagram() {
         addChildNode={addChildNode}
         deleteNode={deleteNode}
         setSelectedNode={setSelectedNode}
-        setShowAddChild={setShowAddChild}
         getNodeType={getNodeType}
         getNodeTypeLabel={getNodeTypeLabel}
         uploadedCV={uploadedCV}
         setUploadedCV={setUploadedCV}
+        continuousAdd={continuousAdd}
+        setContinuousAdd={setContinuousAdd}
       />
 
       {/* Scrollable Canvas */}
       <div className="absolute inset-0 overflow-auto">
-        <div className="relative" style={{ minHeight: '100%', minWidth: '100%', width: '2000px', height: '1200px' }}>
+        <div className="relative" style={{ minHeight: '100%', minWidth: '100%', width: '2000px', height: 'auto' }}>
           {/* SVG for connections */}
           <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
             <defs>

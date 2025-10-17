@@ -3,7 +3,6 @@ import React from 'react';
 export default function ControlPanel({ 
   nodes,
   selectedNode,
-  showAddChild,
   newNodeLabel,
   setNewNodeLabel,
   panelPosition,
@@ -12,11 +11,12 @@ export default function ControlPanel({
   addChildNode,
   deleteNode,
   setSelectedNode,
-  setShowAddChild,
   getNodeType,
   getNodeTypeLabel,
   uploadedCV,
-  setUploadedCV
+  setUploadedCV,
+  continuousAdd,
+  setContinuousAdd
 }) {
   return (
     <div 
@@ -79,7 +79,8 @@ export default function ControlPanel({
             </p>
           </div>
 
-          {showAddChild && (
+          {/* Always show add child textbox when a node is selected */}
+          {selectedNode && (
             <div className="space-y-2">
               <label className="text-sm text-gray-300">
                 Add {getNodeType(nodes.find(n => n.id === selectedNode)) === 'base' ? 'Company' : 'Role'}
@@ -93,7 +94,7 @@ export default function ControlPanel({
                 onKeyPress={(e) => e.key === 'Enter' && addChildNode()}
                 autoFocus
               />
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-2">
                 <button
                   onClick={addChildNode}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
@@ -102,14 +103,24 @@ export default function ControlPanel({
                 </button>
                 <button
                   onClick={() => {
-                    setShowAddChild(false);
+                    setSelectedNode(null);
                     setNewNodeLabel('');
+                    setContinuousAdd(false);
                   }}
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
                 >
                   Cancel
                 </button>
               </div>
+              <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={continuousAdd}
+                  onChange={e => setContinuousAdd(e.target.checked)}
+                  className="accent-blue-500"
+                />
+                Continuous Add
+              </label>
             </div>
           )}
 
@@ -125,8 +136,9 @@ export default function ControlPanel({
           <button
             onClick={() => {
               setSelectedNode(null);
-              setShowAddChild(false);
+                    // removed setShowAddChild
               setNewNodeLabel('');
+              setContinuousAdd(true);
             }}
             className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
           >
