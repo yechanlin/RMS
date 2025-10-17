@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'http://localhost:8001/api';
 
 class ApiService {
   constructor() {
@@ -16,19 +16,21 @@ class ApiService {
     };
 
     try {
-      console.log(`Making API request to: ${url}`);
       const response = await fetch(url, config);
-      console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Handle empty responses
+      // Handle empty responses (like DELETE requests that return 204)
+      if (response.status === 204 || response.status === 201) {
+        return { success: true, status: response.status };
+      }
+
+      // Handle JSON responses
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        console.log(`Response data:`, data);
         return data;
       }
 
