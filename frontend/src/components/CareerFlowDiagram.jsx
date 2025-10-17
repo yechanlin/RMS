@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
-import InfoWindow from './InfoWindow';
+
 
 
 // icons
@@ -161,6 +161,14 @@ export default function CareerFlowDiagram() {
     setIsDragging(false);
   };
 
+  const updateNodeLabel = (nodeId, newLabel) => {
+    setNodes(nodes.map(node => 
+      node.id === nodeId 
+        ? { ...node, label: newLabel }
+        : node
+    ));
+  };
+
   // Determine which nodes are visible
   const visibleNodes = nodes.filter(node => {
     const type = getNodeType(node);
@@ -198,6 +206,7 @@ export default function CareerFlowDiagram() {
         setUploadedCV={setUploadedCV}
         continuousAdd={continuousAdd}
         setContinuousAdd={setContinuousAdd}
+        updateNodeLabel={updateNodeLabel}
       />
 
       {/* Scrollable Canvas */}
