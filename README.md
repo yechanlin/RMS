@@ -23,6 +23,10 @@ This project creates an interactive graph-based interface where users can:
 
 Traditional resume builders are unnecessarily complicated, forcing users through complex multi-step wizards, overwhelming template selections, and rigid formatting constraints when all they want is something simple and effective. Most existing solutions focus on creating resumes from scratch rather than helping users manage and optimize what they already have. Our Resume Management System takes a different approach - it's designed as a **management system first**, where users can easily organize their base CV and systematically tailor it for specific roles and companies. The core philosophy is simplicity: upload your CV once, organize your target companies and roles visually, and let AI handle the intelligent tailoring. Rather than rebuilding your resume every time, you manage one master document and generate focused variations as needed. This approach reduces complexity while maximizing efficiency, allowing job seekers to focus on what matters most - landing the right role with a perfectly tailored resume.
 
+### Links
+- [Dev post](https://devpost.com/software/rms-resume-management-system?ref_content=user-portfolio&ref_feature=in_progress)
+- [Youtube](https://www.youtube.com/watch?v=Zsg2mRJl0GA)
+
 ## Architecture
 
 ```
