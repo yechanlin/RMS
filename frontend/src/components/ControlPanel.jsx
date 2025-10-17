@@ -47,7 +47,7 @@ export default function ControlPanel({
 
   return (
     <div 
-      className="absolute z-20 bg-gray-800 rounded-lg p-4 shadow-xl w-64 cursor-move"
+      className="absolute z-20 bg-gray-800 rounded-lg p-4 shadow-xl w-72 cursor-move"
       style={{ 
         left: `${panelPosition.x}px`, 
         top: `${panelPosition.y}px`,

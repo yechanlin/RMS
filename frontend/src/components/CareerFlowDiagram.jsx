@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
 
-
-
 // icons
 import { FaUpload } from "react-icons/fa";
 
@@ -22,7 +20,6 @@ export default function CareerFlowDiagram() {
 
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  // Remove showAddChild state
   const [newNodeLabel, setNewNodeLabel] = useState('');
   const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
   const [isDragging, setIsDragging] = useState(false);
@@ -69,12 +66,17 @@ export default function CareerFlowDiagram() {
     const parentNode = nodes.find(n => n.id === selectedNode);
     const position = calculateChildPosition(parentNode);
 
+    const nodeType = getNodeType(parentNode);
     const newNode = {
       id: Math.max(...nodes.map(n => n.id)) + 1,
       label: newNodeLabel,
       x: position.x,
       y: position.y,
-      color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      color: nodeType === 'base' 
+        ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+        : nodeType === 'company'
+        ? 'bg-gradient-to-r from-green-500 to-green-600'
+        : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600',
       type: 'child',
       parentId: selectedNode
     };
@@ -239,12 +241,19 @@ export default function CareerFlowDiagram() {
           </svg>
 
           {/* Nodes */}
-          {visibleNodes.map((node) => (
-            <div
-              key={node.id}
-              className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
-                selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
-              }`}
+          {visibleNodes.map((node) => {
+            const nodeType = getNodeType(node);
+            const color = nodeType === 'base'
+              ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+              : nodeType === 'company'
+              ? 'bg-gradient-to-r from-green-500 to-green-600'
+              : 'bg-gradient-to-r from-fuchsia-700 to-fuchsia-600';
+            return (
+              <div
+                key={node.id}
+                className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-xl hover:scale-105 ${
+                  selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
+                }`}
               style={{
                 left: `${node.x}px`,
                 top: `${node.y}px`,
@@ -266,7 +275,7 @@ export default function CareerFlowDiagram() {
                 </div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </div>
