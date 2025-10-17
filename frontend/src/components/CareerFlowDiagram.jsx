@@ -44,16 +44,29 @@ export default function CareerFlowDiagram() {
     setError(null);
     try {
       console.log('Loading data from backend...');
-      const [companiesData, jobsData] = await Promise.all([
+      const [companiesData, jobsData, latestCVData] = await Promise.all([
         apiService.getCompanies(),
-        apiService.getJobs()
+        apiService.getJobs(),
+        apiService.getLatestCV().catch(() => null) // Don't fail if no CV exists
       ]);
       
       console.log('Companies data:', companiesData);
       console.log('Jobs data:', jobsData);
+      console.log('Latest CV data:', latestCVData);
       
       setCompanies(companiesData);
       setJobs(jobsData);
+      
+      // Set uploaded CV if one exists
+      if (latestCVData && latestCVData.filename) {
+        // Create a mock file object for display purposes
+        const mockFile = {
+          name: latestCVData.filename,
+          size: latestCVData.file_size,
+          type: latestCVData.content_type
+        };
+        setUploadedCV(mockFile);
+      }
       
       // Sync nodes with backend data
       syncNodesWithBackendData(companiesData, jobsData);

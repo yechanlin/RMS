@@ -142,13 +142,22 @@ export default function ControlPanel({
               )}
               {uploadedCV && (
                 <button
-                  onClick={() => {
-                    const url = URL.createObjectURL(uploadedCV);
-                    window.open(url);
+                  onClick={async () => {
+                    try {
+                      // Get the latest CV from backend and download it
+                      const latestCV = await apiService.getLatestCV();
+                      if (latestCV && latestCV.id) {
+                        const downloadUrl = `http://localhost:8000/api/resumes/base-cv/${latestCV.id}/download/`;
+                        window.open(downloadUrl, '_blank');
+                      }
+                    } catch (err) {
+                      console.error('Failed to download CV:', err);
+                      setError('Failed to download CV');
+                    }
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                 >
-                  📄 View CV
+                  📄 Download CV
                 </button>
               )}
             </div>
