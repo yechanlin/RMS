@@ -2,6 +2,7 @@ import React from 'react';
 import { FiTarget } from "react-icons/fi";
 import { RiDragMove2Fill } from "react-icons/ri";
 import { MdEdit } from "react-icons/md";
+import apiService from '../services/api';
 
 export default function ControlPanel({ 
   nodes,
@@ -20,12 +21,63 @@ export default function ControlPanel({
   setUploadedCV,
   continuousAdd,
   setContinuousAdd,
-  updateNodeLabel
+  updateNodeLabel,
+  updateJobDescription,
+  loading,
+  error,
+  setError
 }) {
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [pendingDeleteNode, setPendingDeleteNode] = React.useState(null);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editNodeLabel, setEditNodeLabel] = React.useState('');
+  const [uploadingCV, setUploadingCV] = React.useState(false);
+
+  // Load existing job description when a role node is selected
+  React.useEffect(() => {
+    if (selectedNode) {
+      const node = nodes.find(n => n.id === selectedNode);
+      if (node && node.type === 'role' && node.backendData) {
+        setNewNodeLabel(node.backendData.description || '');
+      } else {
+        setNewNodeLabel('');
+      }
+    }
+  }, [selectedNode, nodes]);
+
+  const handleCVUpload = async (file) => {
+    if (!file) return;
+    
+    setUploadingCV(true);
+    setError(null);
+    
+    try {
+      const response = await apiService.uploadCV(file);
+      setUploadedCV(file);
+      console.log('CV uploaded successfully:', response);
+    } catch (err) {
+      console.error('Failed to upload CV:', err);
+      setError(`Failed to upload CV: ${err.message}`);
+    } finally {
+      setUploadingCV(false);
+    }
+  };
+
+  const handleJobDescriptionUpdate = async () => {
+    if (!selectedNode || !newNodeLabel.trim()) return;
+    
+    const node = nodes.find(n => n.id === selectedNode);
+    if (!node || node.type !== 'role' || !node.backendId) return;
+    
+    try {
+      await updateJobDescription(selectedNode, newNodeLabel.trim());
+      setNewNodeLabel('');
+      console.log('Job description updated successfully');
+    } catch (err) {
+      console.error('Failed to update job description:', err);
+      setError(`Failed to update job description: ${err.message}`);
+    }
+  };
 
   const handleDeleteClick = (nodeId) => {
     setPendingDeleteNode(nodeId);
@@ -72,12 +124,18 @@ export default function ControlPanel({
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    setUploadedCV(file);
+                    handleCVUpload(file);
                   }
                 }}
-                className="w-full text-sm text-gray-300 bg-gray-700 p-2 rounded cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                disabled={uploadingCV}
+                className="w-full text-sm text-gray-300 bg-gray-700 p-2 rounded cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              {uploadedCV && (
+              {uploadingCV && (
+                <p className="text-xs text-blue-400 mt-1">
+                  Uploading CV...
+                </p>
+              )}
+              {uploadedCV && !uploadingCV && (
                 <p className="text-xs text-green-400 mt-1">
                   Uploaded: {uploadedCV.name}
                 </p>
@@ -174,6 +232,7 @@ export default function ControlPanel({
                     onChange={(e) => setNewNodeLabel(e.target.value)}
                     placeholder="Paste the job description here"
                     className="w-full px-3 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pt-2 pb-2 h-[100px] resize-none"
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleJobDescriptionUpdate()}
                     autoFocus
                 />
                 ) : (
@@ -195,10 +254,18 @@ export default function ControlPanel({
 
               <div className="flex gap-2 mb-2">
                   <button
-                    onClick={addChildNode}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    onClick={() => {
+                      const nodeType = getNodeType(nodes.find(n => n.id === selectedNode));
+                      if (nodeType === 'role') {
+                        handleJobDescriptionUpdate();
+                      } else {
+                        addChildNode();
+                      }
+                    }}
+                    disabled={loading}
+                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                   >
-                    {getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? '✓ Enter' : '✓ Add'}
+                    {loading ? 'Loading...' : (getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? '✓ Enter' : '✓ Add')}
                   </button>
                 <button
                   onClick={() => {
@@ -217,9 +284,10 @@ export default function ControlPanel({
           {selectedNode !== 1 && (
             <button
               onClick={() => handleDeleteClick(selectedNode)}
-              className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              disabled={loading}
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
             >
-              🗑 Delete Node & Children
+              {loading ? 'Deleting...' : '🗑 Delete Node & Children'}
             </button>
           )}
         {/* Custom Delete Confirmation Modal */}
@@ -248,6 +316,19 @@ export default function ControlPanel({
         </div>
       ) : (
         <p className="text-gray-400 text-sm">Click a node to get started</p>
+      )}
+      
+      {/* Error Display */}
+      {error && (
+        <div className="mt-3 p-2 bg-red-900 border border-red-700 rounded text-red-200 text-xs">
+          {error}
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-red-400 hover:text-red-300"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </div>
   );
