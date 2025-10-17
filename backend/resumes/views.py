@@ -167,8 +167,10 @@ class BaseCVViewSet(viewsets.ModelViewSet):
     def _call_openai_api(self, cv_text, company, job_description):
         """Call OpenAI API to tailor the resume"""
         try:
-            # Initialize OpenAI client
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            # Initialize OpenAI client with explicit http_client to avoid proxy issues
+            import httpx
+            http_client = httpx.Client()
+            client = OpenAI(api_key=settings.OPENAI_API_KEY, http_client=http_client)
             
             # System prompt for resume tailoring
             system_prompt = """You are an expert resume writer. Create a concise, ATS-friendly, single-page resume tailored to the target role and company, using keywords from the job description and the candidate's CV. Keep it within one page, prioritize relevant achievements with quantified impact, and use clean sections.
