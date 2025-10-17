@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
 import InfoWindow from './InfoWindow';
@@ -81,9 +82,7 @@ export default function CareerFlowDiagram() {
       parentId: selectedNode
     };
 
-    // mark node as justAdded to trigger entry animation
-    const nodeWithFlag = { ...newNode, justAdded: true };
-    setNodes(prev => [...prev, nodeWithFlag]);
+    setNodes([...nodes, newNode]);
     setConnections([...connections, { from: selectedNode, to: newNode.id }]);
     setNewNodeLabel('');
     // No need to hide textbox
@@ -172,15 +171,22 @@ export default function CareerFlowDiagram() {
     }
   }, [editingNode]);
 
-  // clear justAdded flags after animations complete
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (nodes.some(n => n.justAdded)) {
-        setNodes(prev => prev.map(n => n.justAdded ? { ...n, justAdded: false } : n));
-      }
-    }, 900);
-    return () => clearTimeout(timeout);
-  }, [nodes]);
+  // Motion settings
+  const shouldReduceMotion = useReducedMotion();
+
+  const containerVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.06,
+      },
+    },
+  };
+
+  const nodeVariants = {
+    hidden: { scale: shouldReduceMotion ? 1 : 0, opacity: shouldReduceMotion ? 1 : 0 },
+    show: { scale: 1, opacity: 1, transition: { duration: 0.33, ease: 'easeOut' } },
+  };
 
   // Determine which nodes are visible
   const visibleNodes = nodes.filter(node => {
@@ -238,25 +244,33 @@ export default function CareerFlowDiagram() {
                 <polygon points="0 0, 10 3, 0 6" fill="white" />
               </marker>
             </defs>
-            {visibleConnections.map((conn, idx) => (
-              <path
-                key={idx}
-                d={generatePath(conn.from, conn.to)}
-                stroke="white"
-                strokeWidth="2.5"
-                fill="none"
-                markerEnd="url(#arrowhead)"
-              />
-            ))}
+            {visibleConnections.map((conn, idx) => {
+              const d = generatePath(conn.from, conn.to);
+              return (
+                <motion.path
+                  key={idx}
+                  d={d}
+                  stroke="white"
+                  strokeWidth="2.5"
+                  fill="none"
+                  markerEnd="url(#arrowhead)"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: 'easeInOut' }}
+                  style={{ pathLength: 1 }}
+                />
+              );
+            })}
           </svg>
 
           {/* Nodes */}
-          {visibleNodes.map((node) => (
-            <div
+          <motion.div variants={containerVariants} initial="hidden" animate="show">
+            {visibleNodes.map((node, nodeIndex) => (
+            <motion.div
               key={node.id}
-              className={`absolute ${node.color} rounded-lg cursor-pointer transition-all ${
-                selectedNode === node.id ? 'node-selected' : 'node-hover'
-              } ${node.justAdded ? 'node-just-added' : ''} node-shadow node-inner-depth`}
+              className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer hover:shadow-2xl ${
+                selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
+              }`}
               style={{
                 left: `${node.x}px`,
                 top: `${node.y}px`,
@@ -274,6 +288,10 @@ export default function CareerFlowDiagram() {
                 setEditingLabel(node.label || '');
                 handleNodeClick(node.id);
               }}
+              variants={nodeVariants}
+              initial="hidden"
+              animate="show"
+              transition={{ duration: 0.33 }}
             >
               <div className="text-white font-semibold text-sm flex items-center justify-center gap-2">
                 {node.id === 1 && <FaUpload />}
@@ -310,8 +328,9 @@ export default function CareerFlowDiagram() {
                   START
                 </div>
               )}
-            </div>
-          ))}
+            </motion.div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </div>
