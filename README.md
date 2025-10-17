@@ -1,6 +1,8 @@
-# ResumeBuilder - Interactive Resume Generator
+# Resume Management System - Interactive Management System and Generator
 
-A NeetCode-style interactive resume builder that allows users to create tailored resumes for different companies and job positions.
+An interactive resume builder that allows users to create tailored resumes for different companies and job positions.
+
+![Alt text](images/image.png)
 
 ## 🎯 Project Overview
 
