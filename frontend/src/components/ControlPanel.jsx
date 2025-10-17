@@ -257,7 +257,12 @@ export default function ControlPanel({
                     if (!node) return null;
 
                     const nodeType = getNodeType(node);
-                    return nodeType === 'base' ? 'Base node' : node.label;
+                    const label = nodeType === 'base' ? 'Base node' : node.label;
+                    return (
+                      <span className="truncate max-w-[160px] block mx-auto" title={label} aria-label={label} tabIndex={0}>
+                        {label}
+                      </span>
+                    );
                 })()}
                 </p>
                 <div className="flex items-center justify-between">
