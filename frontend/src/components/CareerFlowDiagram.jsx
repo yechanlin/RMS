@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
 import InfoWindow from './InfoWindow';
@@ -21,6 +21,9 @@ export default function CareerFlowDiagram() {
 
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [editingNode, setEditingNode] = useState(null);
+  const [editingLabel, setEditingLabel] = useState('');
+  const editInputRef = useRef(null);
   // Remove showAddChild state
   const [newNodeLabel, setNewNodeLabel] = useState('');
   const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
@@ -78,7 +81,9 @@ export default function CareerFlowDiagram() {
       parentId: selectedNode
     };
 
-    setNodes([...nodes, newNode]);
+    // mark node as justAdded to trigger entry animation
+    const nodeWithFlag = { ...newNode, justAdded: true };
+    setNodes(prev => [...prev, nodeWithFlag]);
     setConnections([...connections, { from: selectedNode, to: newNode.id }]);
     setNewNodeLabel('');
     // No need to hide textbox
@@ -160,6 +165,23 @@ export default function CareerFlowDiagram() {
     setIsDragging(false);
   };
 
+  useEffect(() => {
+    if (editingNode !== null) {
+      // focus the input when editing starts
+      setTimeout(() => editInputRef.current && editInputRef.current.focus(), 0);
+    }
+  }, [editingNode]);
+
+  // clear justAdded flags after animations complete
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (nodes.some(n => n.justAdded)) {
+        setNodes(prev => prev.map(n => n.justAdded ? { ...n, justAdded: false } : n));
+      }
+    }, 900);
+    return () => clearTimeout(timeout);
+  }, [nodes]);
+
   // Determine which nodes are visible
   const visibleNodes = nodes.filter(node => {
     const type = getNodeType(node);
@@ -232,9 +254,9 @@ export default function CareerFlowDiagram() {
           {visibleNodes.map((node) => (
             <div
               key={node.id}
-              className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
-                selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
-              }`}
+              className={`absolute ${node.color} rounded-lg cursor-pointer transition-all ${
+                selectedNode === node.id ? 'node-selected' : 'node-hover'
+              } ${node.justAdded ? 'node-just-added' : ''} node-shadow node-inner-depth`}
               style={{
                 left: `${node.x}px`,
                 top: `${node.y}px`,
@@ -245,10 +267,43 @@ export default function CareerFlowDiagram() {
                 e.stopPropagation();
                 handleNodeClick(node.id);
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                // start inline edit
+                setEditingNode(node.id);
+                setEditingLabel(node.label || '');
+                handleNodeClick(node.id);
+              }}
             >
               <div className="text-white font-semibold text-sm flex items-center justify-center gap-2">
                 {node.id === 1 && <FaUpload />}
-                {node.label}
+                {editingNode === node.id ? (
+                  <input
+                    ref={editInputRef}
+                    value={editingLabel}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setEditingLabel(e.target.value)}
+                    onBlur={() => {
+                      // save on blur
+                      setNodes(nodes.map(n => n.id === node.id ? { ...n, label: editingLabel || n.label } : n));
+                      setEditingNode(null);
+                      setEditingLabel('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setNodes(nodes.map(n => n.id === node.id ? { ...n, label: editingLabel || n.label } : n));
+                        setEditingNode(null);
+                        setEditingLabel('');
+                      } else if (e.key === 'Escape') {
+                        setEditingNode(null);
+                        setEditingLabel('');
+                      }
+                    }}
+                    className="w-full bg-transparent text-white font-semibold text-sm text-center outline-none"
+                  />
+                ) : (
+                  <span>{node.label}</span>
+                )}
               </div>
               {node.id === 1 && (
                 <div className="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-bold">
