@@ -37,6 +37,7 @@ export default function CareerFlowDiagram() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [forceRender, setForceRender] = useState(0);
 
   // Load data from backend on component mount
   useEffect(() => {
@@ -73,7 +74,8 @@ export default function CareerFlowDiagram() {
       }
       
       // Sync nodes with backend data
-      syncNodesWithBackendData(companiesData, jobsData);
+      const syncedNodes = syncNodesWithBackendData(companiesData, jobsData);
+      setNodes(syncedNodes);
       console.log('Data loaded successfully');
     } catch (err) {
       console.error('Failed to load data from backend:', err);
@@ -99,7 +101,7 @@ export default function CareerFlowDiagram() {
       label: company.name,
       x: 100 + 350,
       y: 100 + (index * 80),
-      color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      color: 'bg-gradient-to-r from-green-500 to-green-600',
       type: 'company',
       parentId: 1,
       backendId: company.id,
@@ -117,7 +119,7 @@ export default function CareerFlowDiagram() {
         label: job.title,
         x: companyNode.x + 350,
         y: companyNode.y - 100 + (companyJobCount * 120),
-        color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+        color: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
         type: 'role',
         parentId: companyNode.id,
         backendId: job.id,
@@ -126,7 +128,6 @@ export default function CareerFlowDiagram() {
     }).filter(Boolean);
 
     const allNodes = [baseNode, ...companyNodes, ...jobNodes];
-    setNodes(allNodes);
 
     // Create connections
     const connections = [];
@@ -137,6 +138,8 @@ export default function CareerFlowDiagram() {
       connections.push({ from: jobNode.parentId, to: jobNode.id });
     });
     setConnections(connections);
+    
+    return allNodes;
   };
 
   const getNodeType = (node) => {
@@ -215,16 +218,22 @@ export default function CareerFlowDiagram() {
           label: newCompany.name,
           x: position.x,
           y: position.y,
-          color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+          color: 'bg-gradient-to-r from-green-500 to-green-600',
           type: 'company',
           parentId: selectedNode,
           backendId: newCompany.id,
           backendData: newCompany
         };
 
-        setNodes([...nodes, newNode]);
-        setConnections([...connections, { from: selectedNode, to: newNode.id }]);
-        setCompanies([...companies, newCompany]);
+        // Update all states
+        setNodes(prevNodes => [...prevNodes, newNode]);
+        setConnections(prevConnections => [...prevConnections, { from: selectedNode, to: newNode.id }]);
+        setCompanies(prevCompanies => [...prevCompanies, newCompany]);
+        
+        // Reload data from backend to ensure consistency
+        setTimeout(() => {
+          loadDataFromBackend();
+        }, 100);
         
       } else if (nodeType === 'company') {
         // Adding a job/role
@@ -247,16 +256,22 @@ export default function CareerFlowDiagram() {
           label: newJob.title,
           x: position.x,
           y: position.y,
-          color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+          color: 'bg-gradient-to-r from-indigo-500 to-indigo-600',
           type: 'role',
           parentId: selectedNode,
           backendId: newJob.id,
           backendData: newJob
         };
 
-        setNodes([...nodes, newNode]);
-        setConnections([...connections, { from: selectedNode, to: newNode.id }]);
-        setJobs([...jobs, newJob]);
+        // Update all states
+        setNodes(prevNodes => [...prevNodes, newNode]);
+        setConnections(prevConnections => [...prevConnections, { from: selectedNode, to: newNode.id }]);
+        setJobs(prevJobs => [...prevJobs, newJob]);
+        
+        // Reload data from backend to ensure consistency
+        setTimeout(() => {
+          loadDataFromBackend();
+        }, 100);
       }
       
       setNewNodeLabel('');
@@ -289,15 +304,6 @@ export default function CareerFlowDiagram() {
     setError(null);
 
     try {
-      // Delete from backend first
-      if (nodeToDelete.type === 'company' && nodeToDelete.backendId) {
-        await apiService.deleteCompany(nodeToDelete.backendId);
-        setCompanies(companies.filter(c => c.id !== nodeToDelete.backendId));
-      } else if (nodeToDelete.type === 'role' && nodeToDelete.backendId) {
-        await apiService.deleteJob(nodeToDelete.backendId);
-        setJobs(jobs.filter(j => j.id !== nodeToDelete.backendId));
-      }
-      
       // Find all nodes to delete (including children)
       const toDelete = new Set([id]);
       let hasMore = true;
@@ -312,23 +318,28 @@ export default function CareerFlowDiagram() {
         });
       }
       
-      // Delete child nodes from backend
+      // Delete all nodes from backend
+      const companiesToRemove = [];
+      const jobsToRemove = [];
+      
       for (const nodeId of toDelete) {
         const node = nodes.find(n => n.id === nodeId);
         if (node && node.backendId) {
           if (node.type === 'company') {
             await apiService.deleteCompany(node.backendId);
-            setCompanies(companies.filter(c => c.id !== node.backendId));
+            companiesToRemove.push(node.backendId);
           } else if (node.type === 'role') {
             await apiService.deleteJob(node.backendId);
-            setJobs(jobs.filter(j => j.id !== node.backendId));
+            jobsToRemove.push(node.backendId);
           }
         }
       }
       
       // Update frontend state
-      setNodes(nodes.filter(n => !toDelete.has(n.id)));
-      setConnections(connections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)));
+      setNodes(prevNodes => prevNodes.filter(n => !toDelete.has(n.id)));
+      setConnections(prevConnections => prevConnections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)));
+      setCompanies(prevCompanies => prevCompanies.filter(c => !companiesToRemove.includes(c.id)));
+      setJobs(prevJobs => prevJobs.filter(j => !jobsToRemove.includes(j.id)));
       setSelectedNode(null);
       
     } catch (err) {
@@ -399,7 +410,7 @@ export default function CareerFlowDiagram() {
           industry: node.backendData.industry
         });
         
-        setCompanies(companies.map(c => 
+        setCompanies(prevCompanies => prevCompanies.map(c => 
           c.id === node.backendId ? updatedCompany : c
         ));
       } else if (node.type === 'role') {
@@ -413,13 +424,13 @@ export default function CareerFlowDiagram() {
           job_type: node.backendData.job_type
         });
         
-        setJobs(jobs.map(j => 
+        setJobs(prevJobs => prevJobs.map(j => 
           j.id === node.backendId ? updatedJob : j
         ));
       }
       
       // Update frontend state
-      setNodes(nodes.map(node => 
+      setNodes(prevNodes => prevNodes.map(node => 
         node.id === nodeId 
           ? { ...node, label: newLabel }
           : node
@@ -451,12 +462,12 @@ export default function CareerFlowDiagram() {
         job_type: node.backendData.job_type
       });
       
-      setJobs(jobs.map(j => 
+      setJobs(prevJobs => prevJobs.map(j => 
         j.id === node.backendId ? updatedJob : j
       ));
       
       // Update frontend state with new backend data
-      setNodes(nodes.map(n => 
+      setNodes(prevNodes => prevNodes.map(n => 
         n.id === nodeId 
           ? { ...n, backendData: updatedJob }
           : n
@@ -583,11 +594,7 @@ export default function CareerFlowDiagram() {
           <motion.div variants={containerVariants} initial="hidden" animate="show">
             {visibleNodes.map((node, nodeIndex) => {
               const nodeType = getNodeType(node);
-              const color = nodeType === 'base'
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-                : nodeType === 'company'
-                ? 'bg-gradient-to-r from-green-500 to-green-600'
-                : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
+              const color = node.color || getNodeColor(node);
               return (
                 <motion.div
                   key={node.id}
