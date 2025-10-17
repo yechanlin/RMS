@@ -247,11 +247,11 @@ export default function CareerFlowDiagram() {
               ? 'bg-gradient-to-r from-blue-500 to-blue-600'
               : nodeType === 'company'
               ? 'bg-gradient-to-r from-green-500 to-green-600'
-              : 'bg-gradient-to-r from-fuchsia-700 to-fuchsia-600';
+              : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
             return (
               <div
                 key={node.id}
-                className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-xl hover:scale-105 ${
+                className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
                   selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
                 }`}
               style={{

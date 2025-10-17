@@ -43,24 +43,42 @@ ResumeBuilder/
 - Node.js 16+
 - No database setup required (SQLite included)
 
-### Backend Setup
+### Quick Start (Recommended)
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ResumeBuilder
+
+# Start both servers with one command
+./start_servers.sh
+```
+
+This will automatically:
+- Start the Django backend on `http://localhost:8000`
+- Start the React frontend on `http://localhost:3000`
+- Run database migrations
+- Install dependencies if needed
+
+### Manual Setup
+
+#### Backend Setup
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver 8001
+python manage.py runserver 8000
 ```
 
-**Note:** Backend runs on port 8001 to avoid conflicts with frontend (port 3000).
-
-### Frontend Setup
+#### Frontend Setup
 ```bash
 cd frontend
 npm install
 npm start
 ```
+
+**Note:** Backend runs on port 8000, frontend on port 3000.
 
 ## 👥 Team Structure
 
@@ -84,17 +102,33 @@ npm start
 - **Frontend**: Interactive graph interface with node management
 - **Database**: SQLite setup with persistent data storage
 - **API**: RESTful endpoints for companies and jobs
+- **Integration**: Full backend-frontend integration with real-time sync
+- **CV Upload**: PDF/DOC file upload and storage functionality
 
 ### 🔄 In Progress
-- **Resume Upload**: PDF processing and base CV storage
 - **AI Integration**: Resume generation using company + job data
 
 ### 📋 API Endpoints Available
 - `GET /api/companies/` - List all companies
 - `POST /api/companies/` - Create new company
+- `PUT /api/companies/{id}/` - Update company
+- `DELETE /api/companies/{id}/` - Delete company
 - `GET /api/jobs/` - List all jobs
 - `POST /api/jobs/` - Create new job (linked to company)
+- `PUT /api/jobs/{id}/` - Update job
+- `DELETE /api/jobs/{id}/` - Delete job
 - `GET /api/jobs/by_company/?company_id=1` - Jobs for specific company
+- `POST /api/resumes/base-cv/upload/` - Upload CV file
+- `GET /api/resumes/base-cv/latest/` - Get latest uploaded CV
+- `GET /api/resumes/base-cv/{id}/download/` - Download CV file
+
+### 🎮 Frontend Features
+- **Interactive Node Graph**: Click to add companies and jobs
+- **Real-time Sync**: All changes sync with backend immediately
+- **CV Upload**: Drag & drop or click to upload resume files
+- **Node Management**: Edit, delete, and organize nodes
+- **Loading States**: Visual feedback during API operations
+- **Error Handling**: User-friendly error messages
 
 ## 🤝 Contributing
 
