@@ -5,7 +5,7 @@ import ControlPanel from './ControlPanel';
 import InfoWindow from './InfoWindow';
 
 // icons
-import { FaUpload } from "react-icons/fa";
+import { FaUpload, FaBuilding, FaUserTie } from "react-icons/fa";
 
 export default function CareerFlowDiagram() {
   const [nodes, setNodes] = useState([
@@ -40,6 +40,20 @@ export default function CareerFlowDiagram() {
     return 'role';
   };
 
+  const getNodeColor = (node) => {
+    const type = getNodeType(node);
+    if (type === 'base') return 'bg-gradient-to-r from-blue-500 to-blue-600';
+    if (type === 'company') return 'bg-gradient-to-r from-green-500 to-green-600';
+    return 'bg-gradient-to-r from-indigo-500 to-indigo-600';
+  };
+
+  const getNodeIcon = (node) => {
+    const type = getNodeType(node);
+    if (type === 'base') return <FaUpload />;
+    if (type === 'company') return <FaBuilding />;
+    return <FaUserTie />;
+  };
+
   const getChildrenCount = (nodeId) => {
     return nodes.filter(n => n.parentId === nodeId).length;
   };
@@ -72,13 +86,16 @@ export default function CareerFlowDiagram() {
     const parentNode = nodes.find(n => n.id === selectedNode);
     const position = calculateChildPosition(parentNode);
 
+    // determine new node type: children of base (id 1) are companies, others are roles
+    const parentType = getNodeType(parentNode);
+    const newType = parentType === 'base' ? 'company' : 'role';
+
     const newNode = {
       id: Math.max(...nodes.map(n => n.id)) + 1,
       label: newNodeLabel,
       x: position.x,
       y: position.y,
-      color: 'bg-gradient-to-r from-blue-500 to-blue-600',
-      type: 'child',
+      type: newType,
       parentId: selectedNode
     };
 
@@ -246,18 +263,23 @@ export default function CareerFlowDiagram() {
             </defs>
             {visibleConnections.map((conn, idx) => {
               const d = generatePath(conn.from, conn.to);
+              const isConnected = selectedNode !== null && (conn.from === selectedNode || conn.to === selectedNode);
+              const delay = shouldReduceMotion || !isConnected ? 0 : idx * 0.04;
+              // include selected info in key only for connected paths so they remount and animate when selection changes
+              const key = isConnected ? `${conn.from}-${conn.to}-sel-${selectedNode}` : `${conn.from}-${conn.to}`;
+
               return (
                 <motion.path
-                  key={idx}
+                  key={key}
                   d={d}
                   stroke="white"
                   strokeWidth="2.5"
+                  strokeLinecap="round"
                   fill="none"
                   markerEnd="url(#arrowhead)"
-                  initial={{ pathLength: 0, opacity: 0 }}
+                  initial={shouldReduceMotion || !isConnected ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                  style={{ pathLength: 1 }}
+                  transition={{ duration: 0.5, ease: 'easeInOut', delay }}
                 />
               );
             })}
@@ -268,7 +290,7 @@ export default function CareerFlowDiagram() {
             {visibleNodes.map((node, nodeIndex) => (
             <motion.div
               key={node.id}
-              className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer hover:shadow-2xl ${
+              className={`absolute ${getNodeColor(node)} rounded-lg shadow-lg cursor-pointer hover:shadow-2xl ${
                 selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
               }`}
               style={{
@@ -294,7 +316,7 @@ export default function CareerFlowDiagram() {
               transition={{ duration: 0.33 }}
             >
               <div className="text-white font-semibold text-sm flex items-center justify-center gap-2">
-                {node.id === 1 && <FaUpload />}
+                {getNodeIcon(node)}
                 {editingNode === node.id ? (
                   <input
                     ref={editInputRef}
