@@ -1,11 +1,11 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import CompanyViewSet
+
+# Create router and register ViewSet
+router = DefaultRouter()
+router.register(r'', CompanyViewSet)
 
 urlpatterns = [
-    # Company endpoints will be added here
-    # path('', views.CompanyListView.as_view(), name='company-list'),
-    # path('create/', views.CompanyCreateView.as_view(), name='company-create'),
-    # path('<int:pk>/', views.CompanyDetailView.as_view(), name='company-detail'),
-    # path('<int:pk>/update/', views.CompanyUpdateView.as_view(), name='company-update'),
-    # path('<int:pk>/delete/', views.CompanyDeleteView.as_view(), name='company-delete'),
+    path('', include(router.urls)),
 ]
