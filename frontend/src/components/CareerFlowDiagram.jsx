@@ -13,6 +13,7 @@ export default function CareerFlowDiagram() {
     }
   ]);
 
+  const [uploadedCV, setUploadedCV] = useState(null);
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
@@ -144,6 +145,38 @@ export default function CareerFlowDiagram() {
         
         {selectedNode ? (
           <div className="space-y-3">
+            {selectedNode === 1 && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">Upload CV</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setUploadedCV(file);
+                    }
+                  }}
+                    className="w-full text-sm text-gray-300 bg-gray-700 p-2 rounded cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                  />
+                  {uploadedCV && (
+                    <p className="text-xs text-green-400 mt-1">
+                      Uploaded: {uploadedCV.name}
+                    </p>
+                  )}
+                  {uploadedCV && (
+  <button
+    onClick={() => {
+      const url = URL.createObjectURL(uploadedCV);
+      window.open(url);
+    }}
+    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+  >
+    📄 View CV
+  </button>
+)}
+              </div>
+          )}
             <div className="bg-gray-700 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Selected Node</p>
               <p className="text-white font-semibold">
