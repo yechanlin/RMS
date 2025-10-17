@@ -1,11 +1,11 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import JobViewSet
+
+# Create router and register ViewSet
+router = DefaultRouter()
+router.register(r'', JobViewSet)
 
 urlpatterns = [
-    # Job endpoints will be added here
-    # path('', views.JobListView.as_view(), name='job-list'),
-    # path('create/', views.JobCreateView.as_view(), name='job-create'),
-    # path('<int:pk>/', views.JobDetailView.as_view(), name='job-detail'),
-    # path('<int:pk>/update/', views.JobUpdateView.as_view(), name='job-update'),
-    # path('<int:pk>/delete/', views.JobDeleteView.as_view(), name='job-delete'),
+    path('', include(router.urls)),
 ]

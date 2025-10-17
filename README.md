@@ -32,7 +32,7 @@ ResumeBuilder/
 ### Backend
 - **Django** - Web framework
 - **Django REST Framework** - API development
-- **PostgreSQL** - Database
+- **SQLite** - Database (prototype) / PostgreSQL (production ready)
 - **PyPDF2/pdfplumber** - PDF processing
 - **OpenAI/Anthropic** - AI resume generation
 
@@ -41,7 +41,7 @@ ResumeBuilder/
 ### Prerequisites
 - Python 3.9+
 - Node.js 16+
-- PostgreSQL (or SQLite for development)
+- No database setup required (SQLite included)
 
 ### Backend Setup
 ```bash
@@ -50,8 +50,10 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 8001
 ```
+
+**Note:** Backend runs on port 8001 to avoid conflicts with frontend (port 3000).
 
 ### Frontend Setup
 ```bash
@@ -68,11 +70,31 @@ npm start
 
 ## 📋 Development Phases
 
-1. **Phase 1**: Basic project setup and structure
-2. **Phase 2**: PDF upload and parsing functionality
-3. **Phase 3**: Graph visualization and node management
-4. **Phase 4**: AI resume generation
-5. **Phase 5**: Polish and deployment
+1. **Phase 1**: ✅ Basic project setup and structure
+2. **Phase 2**: ✅ Graph visualization and node management
+3. **Phase 3**: ✅ Companies and Jobs API endpoints
+4. **Phase 4**: 🔄 PDF upload and parsing functionality
+5. **Phase 5**: 🔄 AI resume generation
+6. **Phase 6**: 🔄 Polish and deployment
+
+## 🎯 Current Status
+
+### ✅ Completed
+- **Backend**: Companies and Jobs models with full CRUD APIs
+- **Frontend**: Interactive graph interface with node management
+- **Database**: SQLite setup with persistent data storage
+- **API**: RESTful endpoints for companies and jobs
+
+### 🔄 In Progress
+- **Resume Upload**: PDF processing and base CV storage
+- **AI Integration**: Resume generation using company + job data
+
+### 📋 API Endpoints Available
+- `GET /api/companies/` - List all companies
+- `POST /api/companies/` - Create new company
+- `GET /api/jobs/` - List all jobs
+- `POST /api/jobs/` - Create new job (linked to company)
+- `GET /api/jobs/by_company/?company_id=1` - Jobs for specific company
 
 ## 🤝 Contributing
 
