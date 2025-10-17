@@ -41,6 +41,8 @@ export default function CareerFlowDiagram() {
   const [showResumePopup, setShowResumePopup] = useState(false);
   const [resumeUrl, setResumeUrl] = useState('');
   const [tailoredResumes, setTailoredResumes] = useState([]);
+  const [showCVWarning, setShowCVWarning] = useState(false);
+  const [isGeneratingResume, setIsGeneratingResume] = useState(false);
 
   // Load data from backend on component mount
   useEffect(() => {
@@ -355,7 +357,7 @@ export default function CareerFlowDiagram() {
     };
     setNodes([...nodes, newNode]);
     setConnections([...connections, { from: parentRoleNodeId, to: newNode.id }]);
-    setSelectedNode(newNode.id);
+    // Don't select the new node so both the role and tailored resume are visible
     
     // Add to tailored resumes state if it has backend data
     if (payload.id) {
@@ -605,6 +607,12 @@ export default function CareerFlowDiagram() {
     if (type === 'role' && expandedCompanyId && node.parentId === expandedCompanyId) return true;
     // Show children of currently selected node (e.g., tailored resume under role)
     if (selectedNode && node.parentId === selectedNode) return true;
+    // Show tailored resume nodes when they are selected or their parent role is visible
+    if (type === 'tailored') {
+      const parentRole = nodes.find(n => n.id === node.parentId);
+      if (parentRole && expandedCompanyId && parentRole.parentId === expandedCompanyId) return true;
+      if (selectedNode === node.id) return true;
+    }
     return false;
   });
 
@@ -642,6 +650,10 @@ export default function CareerFlowDiagram() {
         loading={loading}
         error={error}
         setError={setError}
+        showCVWarning={showCVWarning}
+        setShowCVWarning={setShowCVWarning}
+        isGeneratingResume={isGeneratingResume}
+        setIsGeneratingResume={setIsGeneratingResume}
       />
 
       {/* Scrollable Canvas */}

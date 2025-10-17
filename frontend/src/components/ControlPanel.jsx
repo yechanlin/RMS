@@ -26,7 +26,11 @@ export default function ControlPanel({
   updateJobDescription,
   loading,
   error,
-  setError
+  setError,
+  showCVWarning,
+  setShowCVWarning,
+  isGeneratingResume,
+  setIsGeneratingResume
 }) {
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
   const [pendingDeleteNode, setPendingDeleteNode] = React.useState(null);
@@ -78,11 +82,12 @@ export default function ControlPanel({
       const companyNode = nodes.find(n => n.id === node.parentId);
       const companyName = companyNode?.label || '';
       if (!uploadedCV) {
-        setError('Please upload your CV on the base node first.');
+        setShowCVWarning(true);
         return;
       }
 
       setError(null);
+      setIsGeneratingResume(true);
       
       // Get the actual CV file from backend
       let formCv;
@@ -90,6 +95,7 @@ export default function ControlPanel({
         const latestCV = await apiService.getLatestCV();
         if (!latestCV || !latestCV.id) {
           setError('No CV found. Please upload a CV first.');
+          setIsGeneratingResume(false);
           return;
         }
         
@@ -104,6 +110,7 @@ export default function ControlPanel({
       } catch (err) {
         console.error('Failed to get CV file:', err);
         setError('Failed to get CV file. Please try uploading again.');
+        setIsGeneratingResume(false);
         return;
       }
 
@@ -126,13 +133,20 @@ export default function ControlPanel({
 
         // Clear textarea
         setNewNodeLabel('');
+        
+        // Add a small delay to ensure the node appears smoothly
+        setTimeout(() => {
+          setIsGeneratingResume(false);
+        }, 500);
       } catch (apiErr) {
         console.error('Failed to tailor resume:', apiErr);
         setError(apiErr?.message || 'Failed to tailor resume');
+        setIsGeneratingResume(false);
       }
     } catch (err) {
       console.error('Failed to update job description:', err);
       setError(`Failed to update job description: ${err.message}`);
+      setIsGeneratingResume(false);
     }
   };
 
@@ -333,10 +347,10 @@ export default function ControlPanel({
                         addChildNode();
                       }
                     }}
-                    disabled={loading}
+                    disabled={loading || isGeneratingResume}
                     className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                   >
-                    {loading ? 'Loading...' : (getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? '✓ Enter' : '✓ Add')}
+                    {loading ? 'Loading...' : isGeneratingResume ? 'Generating Resume...' : (getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? '✓ Enter' : '✓ Add')}
                   </button>
                 <button
                   onClick={() => {
@@ -399,6 +413,50 @@ export default function ControlPanel({
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* CV Warning Popup */}
+      {showCVWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 mx-auto bg-yellow-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                CV Required
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Please upload your CV on the base node first before generating a tailored resume.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowCVWarning(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCVWarning(false);
+                    // Scroll to base node or highlight it
+                    const baseNode = nodes.find(n => n.id === 1);
+                    if (baseNode) {
+                      setSelectedNode(1);
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Go to Base Node
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
