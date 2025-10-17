@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
+import apiService from '../services/api';
 
 // icons
 import { FaUpload } from "react-icons/fa";
@@ -20,6 +21,7 @@ export default function CareerFlowDiagram() {
 
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  // Remove showAddChild state
   const [newNodeLabel, setNewNodeLabel] = useState('');
   const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
   const [isDragging, setIsDragging] = useState(false);
@@ -27,9 +29,103 @@ export default function CareerFlowDiagram() {
   const [uploadedCV, setUploadedCV] = useState(null);
   const [expandedCompanyId, setExpandedCompanyId] = useState(null);
   const [continuousAdd, setContinuousAdd] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Load data from backend on component mount
+  useEffect(() => {
+    loadDataFromBackend();
+  }, []);
+
+  const loadDataFromBackend = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Loading data from backend...');
+      const [companiesData, jobsData] = await Promise.all([
+        apiService.getCompanies(),
+        apiService.getJobs()
+      ]);
+      
+      console.log('Companies data:', companiesData);
+      console.log('Jobs data:', jobsData);
+      
+      setCompanies(companiesData);
+      setJobs(jobsData);
+      
+      // Sync nodes with backend data
+      syncNodesWithBackendData(companiesData, jobsData);
+      console.log('Data loaded successfully');
+    } catch (err) {
+      console.error('Failed to load data from backend:', err);
+      setError(`Failed to load data from backend: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncNodesWithBackendData = (companiesData, jobsData) => {
+    const baseNode = { 
+      id: 1, 
+      label: 'Upload base cv here', 
+      x: 100, 
+      y: 400, 
+      color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      type: 'base',
+      parentId: null
+    };
+
+    const companyNodes = companiesData.map((company, index) => ({
+      id: `company_${company.id}`,
+      label: company.name,
+      x: 100 + 350,
+      y: 100 + (index * 80),
+      color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      type: 'company',
+      parentId: 1,
+      backendId: company.id,
+      backendData: company
+    }));
+
+    const jobNodes = jobsData.map((job, index) => {
+      const companyNode = companyNodes.find(cn => cn.backendId === job.company);
+      if (!companyNode) return null;
+      
+      const companyJobCount = jobsData.filter(j => j.company === job.company).indexOf(job);
+      
+      return {
+        id: `job_${job.id}`,
+        label: job.title,
+        x: companyNode.x + 350,
+        y: companyNode.y - 100 + (companyJobCount * 120),
+        color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+        type: 'role',
+        parentId: companyNode.id,
+        backendId: job.id,
+        backendData: job
+      };
+    }).filter(Boolean);
+
+    const allNodes = [baseNode, ...companyNodes, ...jobNodes];
+    setNodes(allNodes);
+
+    // Create connections
+    const connections = [];
+    companyNodes.forEach(companyNode => {
+      connections.push({ from: 1, to: companyNode.id });
+    });
+    jobNodes.forEach(jobNode => {
+      connections.push({ from: jobNode.parentId, to: jobNode.id });
+    });
+    setConnections(connections);
+  };
 
   const getNodeType = (node) => {
     if (node.type === 'base') return 'base';
+    if (node.type === 'company') return 'company';
+    if (node.type === 'role') return 'role';
     if (node.parentId === 1) return 'company';
     return 'role';
   };
@@ -60,31 +156,85 @@ export default function CareerFlowDiagram() {
     };
   };
 
-  const addChildNode = () => {
+  const addChildNode = async () => {
     if (!newNodeLabel.trim() || !selectedNode) return;
 
     const parentNode = nodes.find(n => n.id === selectedNode);
-    const position = calculateChildPosition(parentNode);
-
     const nodeType = getNodeType(parentNode);
-    const newNode = {
-      id: Math.max(...nodes.map(n => n.id)) + 1,
-      label: newNodeLabel,
-      x: position.x,
-      y: position.y,
-      color: nodeType === 'base' 
-        ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-        : nodeType === 'company'
-        ? 'bg-gradient-to-r from-green-500 to-green-600'
-        : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600',
-      type: 'child',
-      parentId: selectedNode
-    };
+    
+    setLoading(true);
+    setError(null);
 
-    setNodes([...nodes, newNode]);
-    setConnections([...connections, { from: selectedNode, to: newNode.id }]);
-    setNewNodeLabel('');
-    // No need to hide textbox
+    try {
+      if (nodeType === 'base') {
+        // Adding a company
+        const companyData = {
+          name: newNodeLabel.trim(),
+          description: '',
+          website: '',
+          industry: ''
+        };
+        
+        const newCompany = await apiService.createCompany(companyData);
+        
+        // Add company node to frontend
+        const position = calculateChildPosition(parentNode);
+        const newNode = {
+          id: `company_${newCompany.id}`,
+          label: newCompany.name,
+          x: position.x,
+          y: position.y,
+          color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+          type: 'company',
+          parentId: selectedNode,
+          backendId: newCompany.id,
+          backendData: newCompany
+        };
+
+        setNodes([...nodes, newNode]);
+        setConnections([...connections, { from: selectedNode, to: newNode.id }]);
+        setCompanies([...companies, newCompany]);
+        
+      } else if (nodeType === 'company') {
+        // Adding a job/role
+        const jobData = {
+          title: newNodeLabel.trim(),
+          description: '',
+          company: parentNode.backendId,
+          requirements: '',
+          location: '',
+          salary_range: '',
+          job_type: 'full-time'
+        };
+        
+        const newJob = await apiService.createJob(jobData);
+        
+        // Add job node to frontend
+        const position = calculateChildPosition(parentNode);
+        const newNode = {
+          id: `job_${newJob.id}`,
+          label: newJob.title,
+          x: position.x,
+          y: position.y,
+          color: 'bg-gradient-to-r from-blue-500 to-blue-600',
+          type: 'role',
+          parentId: selectedNode,
+          backendId: newJob.id,
+          backendData: newJob
+        };
+
+        setNodes([...nodes, newNode]);
+        setConnections([...connections, { from: selectedNode, to: newNode.id }]);
+        setJobs([...jobs, newJob]);
+      }
+      
+      setNewNodeLabel('');
+    } catch (err) {
+      console.error('Failed to create node:', err);
+      setError(`Failed to create ${nodeType}: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNodeClick = (id) => {
@@ -98,25 +248,64 @@ export default function CareerFlowDiagram() {
     }
   };
 
-  const deleteNode = (id) => {
+  const deleteNode = async (id) => {
     if (id === 1) return;
     
-    const toDelete = new Set([id]);
-    let hasMore = true;
+    const nodeToDelete = nodes.find(n => n.id === id);
+    if (!nodeToDelete) return;
     
-    while (hasMore) {
-      hasMore = false;
-      nodes.forEach(node => {
-        if (toDelete.has(node.parentId) && !toDelete.has(node.id)) {
-          toDelete.add(node.id);
-          hasMore = true;
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Delete from backend first
+      if (nodeToDelete.type === 'company' && nodeToDelete.backendId) {
+        await apiService.deleteCompany(nodeToDelete.backendId);
+        setCompanies(companies.filter(c => c.id !== nodeToDelete.backendId));
+      } else if (nodeToDelete.type === 'role' && nodeToDelete.backendId) {
+        await apiService.deleteJob(nodeToDelete.backendId);
+        setJobs(jobs.filter(j => j.id !== nodeToDelete.backendId));
+      }
+      
+      // Find all nodes to delete (including children)
+      const toDelete = new Set([id]);
+      let hasMore = true;
+      
+      while (hasMore) {
+        hasMore = false;
+        nodes.forEach(node => {
+          if (toDelete.has(node.parentId) && !toDelete.has(node.id)) {
+            toDelete.add(node.id);
+            hasMore = true;
+          }
+        });
+      }
+      
+      // Delete child nodes from backend
+      for (const nodeId of toDelete) {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node && node.backendId) {
+          if (node.type === 'company') {
+            await apiService.deleteCompany(node.backendId);
+            setCompanies(companies.filter(c => c.id !== node.backendId));
+          } else if (node.type === 'role') {
+            await apiService.deleteJob(node.backendId);
+            setJobs(jobs.filter(j => j.id !== node.backendId));
+          }
         }
-      });
+      }
+      
+      // Update frontend state
+      setNodes(nodes.filter(n => !toDelete.has(n.id)));
+      setConnections(connections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)));
+      setSelectedNode(null);
+      
+    } catch (err) {
+      console.error('Failed to delete node:', err);
+      setError(`Failed to delete node: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-    
-    setNodes(nodes.filter(n => !toDelete.has(n.id)));
-    setConnections(connections.filter(c => !toDelete.has(c.from) && !toDelete.has(c.to)));
-  setSelectedNode(null);
   };
 
   const generatePath = (from, to) => {
@@ -163,12 +352,91 @@ export default function CareerFlowDiagram() {
     setIsDragging(false);
   };
 
-  const updateNodeLabel = (nodeId, newLabel) => {
-    setNodes(nodes.map(node => 
-      node.id === nodeId 
-        ? { ...node, label: newLabel }
-        : node
-    ));
+  const updateNodeLabel = async (nodeId, newLabel) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.backendId) return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (node.type === 'company') {
+        const updatedCompany = await apiService.updateCompany(node.backendId, {
+          name: newLabel,
+          description: node.backendData.description,
+          website: node.backendData.website,
+          industry: node.backendData.industry
+        });
+        
+        setCompanies(companies.map(c => 
+          c.id === node.backendId ? updatedCompany : c
+        ));
+      } else if (node.type === 'role') {
+        const updatedJob = await apiService.updateJob(node.backendId, {
+          title: newLabel,
+          description: node.backendData.description,
+          company: node.backendData.company,
+          requirements: node.backendData.requirements,
+          location: node.backendData.location,
+          salary_range: node.backendData.salary_range,
+          job_type: node.backendData.job_type
+        });
+        
+        setJobs(jobs.map(j => 
+          j.id === node.backendId ? updatedJob : j
+        ));
+      }
+      
+      // Update frontend state
+      setNodes(nodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, label: newLabel }
+          : node
+      ));
+      
+    } catch (err) {
+      console.error('Failed to update node:', err);
+      setError(`Failed to update node: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateJobDescription = async (nodeId, newDescription) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.backendId || node.type !== 'role') return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const updatedJob = await apiService.updateJob(node.backendId, {
+        title: node.label,
+        description: newDescription,
+        company: node.backendData.company,
+        requirements: node.backendData.requirements,
+        location: node.backendData.location,
+        salary_range: node.backendData.salary_range,
+        job_type: node.backendData.job_type
+      });
+      
+      setJobs(jobs.map(j => 
+        j.id === node.backendId ? updatedJob : j
+      ));
+      
+      // Update frontend state with new backend data
+      setNodes(nodes.map(n => 
+        n.id === nodeId 
+          ? { ...n, backendData: updatedJob }
+          : n
+      ));
+      
+    } catch (err) {
+      console.error('Failed to update job description:', err);
+      setError(`Failed to update job description: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Determine which nodes are visible
@@ -209,6 +477,10 @@ export default function CareerFlowDiagram() {
         continuousAdd={continuousAdd}
         setContinuousAdd={setContinuousAdd}
         updateNodeLabel={updateNodeLabel}
+        updateJobDescription={updateJobDescription}
+        loading={loading}
+        error={error}
+        setError={setError}
       />
 
       {/* Scrollable Canvas */}
@@ -241,19 +513,12 @@ export default function CareerFlowDiagram() {
           </svg>
 
           {/* Nodes */}
-          {visibleNodes.map((node) => {
-            const nodeType = getNodeType(node);
-            const color = nodeType === 'base'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-              : nodeType === 'company'
-              ? 'bg-gradient-to-r from-green-500 to-green-600'
-              : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
-            return (
-              <div
-                key={node.id}
-                className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
-                  selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
-                }`}
+          {visibleNodes.map((node) => (
+            <div
+              key={node.id}
+              className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
+                selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
+              }`}
               style={{
                 left: `${node.x}px`,
                 top: `${node.y}px`,
@@ -275,7 +540,7 @@ export default function CareerFlowDiagram() {
                 </div>
               )}
             </div>
-          )})}
+          ))}
         </div>
       </div>
     </div>
