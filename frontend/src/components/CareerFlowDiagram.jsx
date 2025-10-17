@@ -3,6 +3,7 @@ import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
 import InfoWindow from './InfoWindow';
 
+
 // icons
 import { FaUpload } from "react-icons/fa";
 
@@ -175,7 +176,7 @@ export default function CareerFlowDiagram() {
 
   return (
     <div 
-      className="relative w-full h-screen bg-gray-900 overflow-hidden py-4"
+      className="relative w-full h-screen bg-gray-900 overflow-hidden"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
@@ -200,7 +201,7 @@ export default function CareerFlowDiagram() {
       />
 
       {/* Scrollable Canvas */}
-      <div className="absolute inset-0 overflow-auto">
+      <div className="absolute inset-0 overflow-auto py-16">
         <div className="relative" style={{ minHeight: '100%', minWidth: '100%', width: '2000px', height: 'auto' }}>
           {/* SVG for connections */}
           <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">

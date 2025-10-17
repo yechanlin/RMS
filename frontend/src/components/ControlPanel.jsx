@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiTarget } from "react-icons/fi";
 
 export default function ControlPanel({ 
   nodes,
@@ -29,7 +30,7 @@ export default function ControlPanel({
       onMouseDown={handlePanelMouseDown}
     >
       <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-        <span>🎯</span> Controls
+        <span><FiTarget /></span> Controls
         <span className="text-xs text-gray-400 ml-auto">↔ Drag</span>
       </h3>
       
@@ -70,12 +71,12 @@ export default function ControlPanel({
           )}
 
           <div className="bg-gray-700 rounded-lg p-3">
-            <p className="text-xs text-gray-400 mb-1">Selected Node</p>
-            <p className="text-white font-semibold">
+            <p className="text-xs text-gray-400 mb-1">Selected Node:</p>
+            <p className="text-white font-semibold text-center">
               {nodes.find(n => n.id === selectedNode)?.label}
             </p>
             <p className="text-xs text-blue-400 mt-1">
-              {getNodeTypeLabel(nodes.find(n => n.id === selectedNode))}
+              {'>'} {getNodeTypeLabel(nodes.find(n => n.id === selectedNode))}
             </p>
           </div>
 
@@ -83,24 +84,45 @@ export default function ControlPanel({
           {selectedNode && (
             <div className="space-y-2">
               <label className="text-sm text-gray-300">
-                Add {getNodeType(nodes.find(n => n.id === selectedNode)) === 'base' ? 'Company' : 'Role'}
+                {(() => {
+                  const nodeType = getNodeType(nodes.find(n => n.id === selectedNode));
+                  if (nodeType === 'base') return 'Add Company';
+                  if (nodeType === 'company') return 'Add Role';
+                  return 'Job description';
+                })()}
               </label>
-              <input
-                type="text"
-                value={newNodeLabel}
-                onChange={(e) => setNewNodeLabel(e.target.value)}
-                placeholder={getNodeType(nodes.find(n => n.id === selectedNode)) === 'base' ? 'e.g., Google, Meta' : 'e.g., SWE'}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onKeyPress={(e) => e.key === 'Enter' && addChildNode()}
-                autoFocus
-              />
+              {getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? (
+                <textarea
+                    value={newNodeLabel}
+                    onChange={(e) => setNewNodeLabel(e.target.value)}
+                    placeholder="Paste the job description here"
+                    className="w-full px-3 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pt-2 pb-2 h-[100px] resize-none"
+                    autoFocus
+                />
+                ) : (
+                <input
+                    type="text"
+                    value={newNodeLabel}
+                    onChange={(e) => setNewNodeLabel(e.target.value)}
+                    placeholder={(() => {
+                    const nodeType = getNodeType(nodes.find(n => n.id === selectedNode));
+                    if (nodeType === 'base') return 'e.g., Google, Meta';
+                    if (nodeType === 'company') return 'e.g., SWE';
+                    return '';
+                    })()}
+                    className="w-full px-3 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 py-2"
+                    onKeyPress={(e) => e.key === 'Enter' && addChildNode()}
+                    autoFocus
+                />
+                )}
+
               <div className="flex gap-2 mb-2">
-                <button
-                  onClick={addChildNode}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                >
-                  ✓ Add
-                </button>
+                  <button
+                    onClick={addChildNode}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    {getNodeType(nodes.find(n => n.id === selectedNode)) === 'role' ? '✓ Enter' : '✓ Add'}
+                  </button>
                 <button
                   onClick={() => {
                     setSelectedNode(null);
@@ -112,15 +134,6 @@ export default function ControlPanel({
                   Cancel
                 </button>
               </div>
-              <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={continuousAdd}
-                  onChange={e => setContinuousAdd(e.target.checked)}
-                  className="accent-blue-500"
-                />
-                Continuous Add
-              </label>
             </div>
           )}
 
@@ -132,18 +145,6 @@ export default function ControlPanel({
               🗑 Delete Node & Children
             </button>
           )}
-
-          <button
-            onClick={() => {
-              setSelectedNode(null);
-                    // removed setShowAddChild
-              setNewNodeLabel('');
-              setContinuousAdd(true);
-            }}
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
-          >
-            Deselect
-          </button>
         </div>
       ) : (
         <p className="text-gray-400 text-sm">Click a node to get started</p>
