@@ -1,4 +1,10 @@
 import React, { useState } from 'react';
+import InfoPanel from './InfoPanel';
+import ControlPanel from './ControlPanel';
+import InfoWindow from './InfoWindow';
+
+// icons
+import { FaUpload } from "react-icons/fa";
 
 export default function CareerFlowDiagram() {
   const [nodes, setNodes] = useState([
@@ -17,6 +23,11 @@ export default function CareerFlowDiagram() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newNodeLabel, setNewNodeLabel] = useState('');
+  const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [uploadedCV, setUploadedCV] = useState(null);
+  const [expandedCompanyId, setExpandedCompanyId] = useState(null);
 
   const getNodeType = (node) => {
     if (node.type === 'base') return 'base';
@@ -36,7 +47,7 @@ export default function CareerFlowDiagram() {
     
     if (nodeType === 'base') {
       xOffset = 350;
-      ySpacing = 180;
+      ySpacing = 80;
       baseY = 100;
     } else {
       xOffset = 350;
@@ -75,6 +86,13 @@ export default function CareerFlowDiagram() {
   const handleNodeClick = (id) => {
     setSelectedNode(id);
     setShowAddChild(true);
+    const node = nodes.find(n => n.id === id);
+    const nodeType = getNodeType(node);
+    if (nodeType === 'company') {
+      setExpandedCompanyId(id);
+    } else if (nodeType === 'base') {
+      setExpandedCompanyId(null);
+    }
   };
 
   const deleteNode = (id) => {
@@ -122,96 +140,65 @@ export default function CareerFlowDiagram() {
     return 'Role';
   };
 
+  const handlePanelMouseDown = (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - panelPosition.x,
+      y: e.clientY - panelPosition.y
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    setPanelPosition({
+      x: e.clientX - dragOffset.x,
+      y: e.clientY - dragOffset.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Determine which nodes are visible
+  const visibleNodes = nodes.filter(node => {
+    const type = getNodeType(node);
+    if (type === 'base') return true;
+    if (type === 'company') return true;
+    if (type === 'role' && expandedCompanyId && node.parentId === expandedCompanyId) return true;
+    return false;
+  });
+
+  // Only show connections where both nodes are visible
+  const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+  const visibleConnections = connections.filter(conn => visibleNodeIds.has(conn.from) && visibleNodeIds.has(conn.to));
+
   return (
-    <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Info Panel - Top Right */}
-      <div className="absolute top-4 right-4 z-20 bg-gray-800 rounded-lg p-4 shadow-xl max-w-xs">
-        <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-          <span>📋</span> Instructions
-        </h3>
-        <ul className="text-gray-300 text-sm space-y-1">
-          <li>• Click the base node to add companies</li>
-          <li>• Click a company to add roles</li>
-          <li>• Use the control panel to manage nodes</li>
-        </ul>
-      </div>
-
-      {/* Control Panel - Top Left */}
-      <div className="absolute top-4 left-4 z-20 bg-gray-800 rounded-lg p-4 shadow-xl w-64">
-        <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-          <span>🎯</span> Controls
-        </h3>
-        
-        {selectedNode ? (
-          <div className="space-y-3">
-            <div className="bg-gray-700 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Selected Node</p>
-              <p className="text-white font-semibold">
-                {nodes.find(n => n.id === selectedNode)?.label}
-              </p>
-              <p className="text-xs text-blue-400 mt-1">
-                {getNodeTypeLabel(nodes.find(n => n.id === selectedNode))}
-              </p>
-            </div>
-
-            {showAddChild && (
-              <div className="space-y-2">
-                <label className="text-sm text-gray-300">
-                  Add {getNodeType(nodes.find(n => n.id === selectedNode)) === 'base' ? 'Company' : 'Role'}
-                </label>
-                <input
-                  type="text"
-                  value={newNodeLabel}
-                  onChange={(e) => setNewNodeLabel(e.target.value)}
-                  placeholder={getNodeType(nodes.find(n => n.id === selectedNode)) === 'base' ? 'e.g., Google' : 'e.g., SWE'}
-                  className="w-full px-3 py-2 bg-gray-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && addChildNode()}
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={addChildNode}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  >
-                    ✓ Add
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddChild(false);
-                      setNewNodeLabel('');
-                    }}
-                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {selectedNode !== 1 && (
-              <button
-                onClick={() => deleteNode(selectedNode)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-              >
-                🗑 Delete Node & Children
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                setSelectedNode(null);
-                setShowAddChild(false);
-                setNewNodeLabel('');
-              }}
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
-            >
-              Deselect
-            </button>
-          </div>
-        ) : (
-          <p className="text-gray-400 text-sm">Click a node to get started</p>
-        )}
-      </div>
+    <div 
+      className="relative w-full h-screen bg-gray-900 overflow-hidden"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      <InfoPanel />
+      <ControlPanel 
+        nodes={nodes}
+        selectedNode={selectedNode}
+        showAddChild={showAddChild}
+        newNodeLabel={newNodeLabel}
+        setNewNodeLabel={setNewNodeLabel}
+        panelPosition={panelPosition}
+        isDragging={isDragging}
+        handlePanelMouseDown={handlePanelMouseDown}
+        addChildNode={addChildNode}
+        deleteNode={deleteNode}
+        setSelectedNode={setSelectedNode}
+        setShowAddChild={setShowAddChild}
+        getNodeType={getNodeType}
+        getNodeTypeLabel={getNodeTypeLabel}
+        uploadedCV={uploadedCV}
+        setUploadedCV={setUploadedCV}
+      />
 
       {/* Scrollable Canvas */}
       <div className="absolute inset-0 overflow-auto">
@@ -230,7 +217,7 @@ export default function CareerFlowDiagram() {
                 <polygon points="0 0, 10 3, 0 6" fill="white" />
               </marker>
             </defs>
-            {connections.map((conn, idx) => (
+            {visibleConnections.map((conn, idx) => (
               <path
                 key={idx}
                 d={generatePath(conn.from, conn.to)}
@@ -243,7 +230,7 @@ export default function CareerFlowDiagram() {
           </svg>
 
           {/* Nodes */}
-          {nodes.map((node) => (
+          {visibleNodes.map((node) => (
             <div
               key={node.id}
               className={`absolute ${node.color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
@@ -260,7 +247,8 @@ export default function CareerFlowDiagram() {
                 handleNodeClick(node.id);
               }}
             >
-              <div className="text-white font-semibold text-center text-sm mb-2">
+              <div className="text-white font-semibold text-sm flex items-center justify-center gap-2">
+                {node.id === 1 && <FaUpload />}
                 {node.label}
               </div>
               {node.id === 1 && (
