@@ -1,10 +1,10 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import BaseCVViewSet
+
+router = DefaultRouter()
+router.register(r'base-cv', BaseCVViewSet)
 
 urlpatterns = [
-    # Resume endpoints will be added here
-    # path('', views.ResumeListView.as_view(), name='resume-list'),
-    # path('upload/', views.ResumeUploadView.as_view(), name='resume-upload'),
-    # path('<int:pk>/', views.ResumeDetailView.as_view(), name='resume-detail'),
-    # path('<int:pk>/generate/', views.GenerateResumeView.as_view(), name='generate-resume'),
+    path('', include(router.urls)),
 ]
