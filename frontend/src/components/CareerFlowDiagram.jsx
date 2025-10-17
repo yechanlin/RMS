@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import InfoPanel from './InfoPanel';
 import ControlPanel from './ControlPanel';
 import apiService from '../services/api';
 
 // icons
-import { FaUpload } from "react-icons/fa";
+import { FaUpload, FaBuilding, FaUserTie } from "react-icons/fa";
 
 export default function CareerFlowDiagram() {
   const [nodes, setNodes] = useState([
@@ -21,6 +22,9 @@ export default function CareerFlowDiagram() {
 
   const [connections, setConnections] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [editingNode, setEditingNode] = useState(null);
+  const [editingLabel, setEditingLabel] = useState('');
+  const editInputRef = useRef(null);
   // Remove showAddChild state
   const [newNodeLabel, setNewNodeLabel] = useState('');
   const [panelPosition, setPanelPosition] = useState({ x: 16, y: 16 });
@@ -141,6 +145,20 @@ export default function CareerFlowDiagram() {
     if (node.type === 'role') return 'role';
     if (node.parentId === 1) return 'company';
     return 'role';
+  };
+
+  const getNodeColor = (node) => {
+    const type = getNodeType(node);
+    if (type === 'base') return 'bg-gradient-to-r from-blue-500 to-blue-600';
+    if (type === 'company') return 'bg-gradient-to-r from-green-500 to-green-600';
+    return 'bg-gradient-to-r from-indigo-500 to-indigo-600';
+  };
+
+  const getNodeIcon = (node) => {
+    const type = getNodeType(node);
+    if (type === 'base') return <FaUpload />;
+    if (type === 'company') return <FaBuilding />;
+    return <FaUserTie />;
   };
 
   const getChildrenCount = (nodeId) => {
@@ -452,6 +470,30 @@ export default function CareerFlowDiagram() {
     }
   };
 
+  useEffect(() => {
+    if (editingNode !== null) {
+      // focus the input when editing starts
+      setTimeout(() => editInputRef.current && editInputRef.current.focus(), 0);
+    }
+  }, [editingNode]);
+
+  // Motion settings
+  const shouldReduceMotion = useReducedMotion();
+
+  const containerVariants = {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: shouldReduceMotion ? 0 : 0.06,
+      },
+    },
+  };
+
+  const nodeVariants = {
+    hidden: { scale: shouldReduceMotion ? 1 : 0, opacity: shouldReduceMotion ? 1 : 0 },
+    show: { scale: 1, opacity: 1, transition: { duration: 0.33, ease: 'easeOut' } },
+  };
+
   // Determine which nodes are visible
   const visibleNodes = nodes.filter(node => {
     const type = getNodeType(node);
@@ -513,54 +555,106 @@ export default function CareerFlowDiagram() {
                 <polygon points="0 0, 10 3, 0 6" fill="white" />
               </marker>
             </defs>
-            {visibleConnections.map((conn, idx) => (
-              <path
-                key={idx}
-                d={generatePath(conn.from, conn.to)}
-                stroke="white"
-                strokeWidth="2.5"
-                fill="none"
-                markerEnd="url(#arrowhead)"
-              />
-            ))}
+            {visibleConnections.map((conn, idx) => {
+              const d = generatePath(conn.from, conn.to);
+              const isConnected = selectedNode !== null && (conn.from === selectedNode || conn.to === selectedNode);
+              const delay = shouldReduceMotion || !isConnected ? 0 : idx * 0.04;
+              // include selected info in key only for connected paths so they remount and animate when selection changes
+              const key = isConnected ? `${conn.from}-${conn.to}-sel-${selectedNode}` : `${conn.from}-${conn.to}`;
+
+              return (
+                <motion.path
+                  key={key}
+                  d={d}
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  fill="none"
+                  markerEnd="url(#arrowhead)"
+                  initial={shouldReduceMotion || !isConnected ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 0.5, ease: 'easeInOut', delay }}
+                />
+              );
+            })}
           </svg>
 
-           {/* Nodes */}
-           {visibleNodes.map((node) => {
-            const nodeType = getNodeType(node);
-            const color = nodeType === 'base'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-              : nodeType === 'company'
-              ? 'bg-gradient-to-r from-green-500 to-green-600'
-              : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
-            return (
-              <div
-                key={node.id}
-                className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
-                  selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
-                }`}
-              style={{
-                left: `${node.x}px`,
-                top: `${node.y}px`,
-                width: '180px',
-                padding: '12px',
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleNodeClick(node.id);
-              }}
+          {/* Nodes */}
+          <motion.div variants={containerVariants} initial="hidden" animate="show">
+            {visibleNodes.map((node, nodeIndex) => {
+              const nodeType = getNodeType(node);
+              const color = nodeType === 'base'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                : nodeType === 'company'
+                ? 'bg-gradient-to-r from-green-500 to-green-600'
+                : 'bg-gradient-to-r from-fuchsia-500 to-fuchsia-600';
+              return (
+                <motion.div
+                  key={node.id}
+                  variants={nodeVariants}
+                  initial="hidden"
+                  animate="show"
+                  transition={{ duration: 0.33 }}
+                  className={`absolute ${color} rounded-lg shadow-lg cursor-pointer transition-all hover:shadow-2xl hover:scale-105 ${
+                    selectedNode === node.id ? 'ring-4 ring-yellow-400' : ''
+                  }`}
+                  style={{
+                    left: `${node.x}px`,
+                    top: `${node.y}px`,
+                    width: '180px',
+                    padding: '12px',
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNodeClick(node.id);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    // start inline edit
+                    setEditingNode(node.id);
+                    setEditingLabel(node.label || '');
+                    handleNodeClick(node.id);
+                  }}
             >
               <div className="text-white font-semibold text-sm flex items-center justify-center gap-2">
-                {node.id === 1 && <FaUpload />}
-                {node.label}
+                {getNodeIcon(node)}
+                {editingNode === node.id ? (
+                  <input
+                    ref={editInputRef}
+                    value={editingLabel}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setEditingLabel(e.target.value)}
+                    onBlur={() => {
+                      // save on blur
+                      setNodes(nodes.map(n => n.id === node.id ? { ...n, label: editingLabel || n.label } : n));
+                      setEditingNode(null);
+                      setEditingLabel('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setNodes(nodes.map(n => n.id === node.id ? { ...n, label: editingLabel || n.label } : n));
+                        setEditingNode(null);
+                        setEditingLabel('');
+                      } else if (e.key === 'Escape') {
+                        setEditingNode(null);
+                        setEditingLabel('');
+                      }
+                    }}
+                    className="w-full bg-transparent text-white font-semibold text-sm text-center outline-none"
+                  />
+                ) : (
+                  <span>{node.label}</span>
+                )}
               </div>
               {node.id === 1 && (
                 <div className="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                   START
                 </div>
               )}
-            </div>
-          )})}
+                </motion.div>
+              );
+            })}
+          </motion.div>
         </div>
       </div>
     </div>
