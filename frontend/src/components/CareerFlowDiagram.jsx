@@ -643,7 +643,15 @@ export default function CareerFlowDiagram() {
                     className="w-full bg-transparent text-white font-semibold text-sm text-center outline-none"
                   />
                 ) : (
-                  <span>{node.label}</span>
+                  // Truncate long labels visually and expose full text via title for accessibility
+                  <span
+                    className="truncate max-w-[120px] block text-center"
+                    title={node.label}
+                    aria-label={node.label}
+                    tabIndex={0}
+                  >
+                    {node.label}
+                  </span>
                 )}
               </div>
               {node.id === 1 && (
