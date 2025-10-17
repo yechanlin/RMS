@@ -41,3 +41,22 @@ class BaseCV(models.Model):
                 if not self.content_type:
                     self.content_type = 'application/octet-stream'
         super().save(*args, **kwargs)
+
+def tailored_resume_upload_path(instance, filename):
+    """Generate upload path for tailored resume files"""
+    return f'tailored_resumes/{filename}'
+
+class TailoredResume(models.Model):
+    """Model to store tailored resume files"""
+    job = models.ForeignKey('jobs.Job', on_delete=models.CASCADE, related_name='tailored_resumes')
+    file_path = models.CharField(max_length=500)
+    tailored_content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "Tailored Resume"
+        verbose_name_plural = "Tailored Resumes"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Tailored Resume for {self.job.title} at {self.job.company.name}"
