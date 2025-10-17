@@ -87,16 +87,25 @@ WSGI_APPLICATION = 'resumebuilder.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# For hackathon prototype - using SQLite for simplicity
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DATABASE_NAME', default='resumebuilder_db'),
-        'USER': config('DATABASE_USER', default='postgres'),
-        'PASSWORD': config('DATABASE_PASSWORD', default='password'),
-        'HOST': config('DATABASE_HOST', default='localhost'),
-        'PORT': config('DATABASE_PORT', default='5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Uncomment below for PostgreSQL in production
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': config('DATABASE_NAME', default='resumebuilder_db'),
+#         'USER': config('DATABASE_USER', default='postgres'),
+#         'PASSWORD': config('DATABASE_PASSWORD', default='password'),
+#         'HOST': config('DATABASE_HOST', default='localhost'),
+#         'PORT': config('DATABASE_PORT', default='5432'),
+#     }
+# }
 
 
 # Password validation
@@ -174,8 +183,8 @@ CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://localhost:6379/0')
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 
-# Development settings
-if DEBUG:
-    INSTALLED_APPS += ['debug_toolbar']
-    MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
-    INTERNAL_IPS = ['127.0.0.1', 'localhost']
+# Development settings (debug toolbar commented out for hackathon)
+# if DEBUG:
+#     INSTALLED_APPS += ['debug_toolbar']
+#     MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+#     INTERNAL_IPS = ['127.0.0.1', 'localhost']
