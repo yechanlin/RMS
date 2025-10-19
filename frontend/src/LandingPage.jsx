@@ -99,7 +99,7 @@ export default function LandingPage({ onLogin }) {
                   textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                 }}
               >
-                RMS
+                GRIMS
               </Title>
               <Text 
                 size="lg" 

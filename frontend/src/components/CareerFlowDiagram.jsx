@@ -78,17 +78,85 @@ export default function CareerFlowDiagram() {
     loadDataFromBackend();
   }, []);
 
-  // Keyboard event listener for Escape key
+  // Keyboard event listener for Escape key and arrow navigation
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setDiagram(prev => ({ ...prev, selectedNodes: new Set(), selectedNode: null }));
+        return;
+      }
+
+      // Arrow key navigation - only work when a single node is selected
+      if (diagram.selectedNode && diagram.selectedNodes.size === 0) {
+        const currentNode = diagram.nodes.find(n => n.id === diagram.selectedNode);
+        if (!currentNode) return;
+
+        let targetNode = null;
+
+        switch (event.key) {
+          case 'ArrowLeft':
+            // Navigate to parent node
+            if (currentNode.parentId) {
+              targetNode = diagram.nodes.find(n => n.id === currentNode.parentId);
+            }
+            break;
+
+          case 'ArrowRight':
+            // Navigate to first child node (alphabetically)
+            const children = diagram.nodes.filter(n => n.parentId === currentNode.id);
+            if (children.length > 0) {
+              // Sort children alphabetically and select the first one
+              children.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+              targetNode = children[0];
+            }
+            break;
+
+          case 'ArrowUp':
+            // Navigate to previous sibling (same parent, same level)
+            if (currentNode.parentId) {
+              const siblings = diagram.nodes.filter(n => n.parentId === currentNode.parentId);
+              siblings.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+              const currentIndex = siblings.findIndex(n => n.id === currentNode.id);
+              if (currentIndex > 0) {
+                targetNode = siblings[currentIndex - 1];
+              }
+            }
+            break;
+
+          case 'ArrowDown':
+            // Navigate to next sibling (same parent, same level)
+            if (currentNode.parentId) {
+              const siblings = diagram.nodes.filter(n => n.parentId === currentNode.parentId);
+              siblings.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+              const currentIndex = siblings.findIndex(n => n.id === currentNode.id);
+              if (currentIndex < siblings.length - 1) {
+                targetNode = siblings[currentIndex + 1];
+              }
+            }
+            break;
+        }
+
+        // Navigate to target node if found
+        if (targetNode) {
+          event.preventDefault(); // Prevent default scrolling behavior
+          const nodeType = getNodeType(targetNode);
+          
+          setDiagram(prev => ({
+            ...prev,
+            selectedNode: targetNode.id,
+            selectedNodes: new Set(),
+            expandedCompanyId: nodeType === 'company' ? targetNode.id : 
+                             (nodeType === 'base' ? null : prev.expandedCompanyId),
+            expandedRoleId: nodeType === 'role' ? targetNode.id : 
+                           (nodeType === 'company' || nodeType === 'base' ? null : prev.expandedRoleId)
+          }));
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [diagram.selectedNode, diagram.selectedNodes, diagram.nodes]);
 
   // Helper function to find all descendant nodes
   const findAllDescendants = (nodeIds) => {
@@ -275,6 +343,7 @@ export default function CareerFlowDiagram() {
   };
 
   const getNodeType = (node) => {
+    if (!node) return 'unknown'; // Handle undefined/null nodes
     if (node.type === 'base') return 'base';
     if (node.type === 'company') return 'company';
     if (node.type === 'role') return 'role';
@@ -513,6 +582,7 @@ export default function CareerFlowDiagram() {
           nodes: [...prev.nodes, newNode],
           connections: [...prev.connections, { from: diagram.selectedNode, to: newNode.id }]
         }));
+        
         setData(prev => ({ ...prev, companies: [...prev.companies, newCompany] }));
         
         // Reload data from backend to ensure consistency
@@ -554,6 +624,7 @@ export default function CareerFlowDiagram() {
           nodes: [...prev.nodes, newNode],
           connections: [...prev.connections, { from: diagram.selectedNode, to: newNode.id }]
         }));
+        
         setData(prev => ({ ...prev, jobs: [...prev.jobs, newJob] }));
         
         // Reload data from backend to ensure consistency
@@ -848,9 +919,11 @@ export default function CareerFlowDiagram() {
   };
 
   const getNodeTypeLabel = (node) => {
+    if (!node) return 'Unknown'; // Handle undefined/null nodes
     const type = getNodeType(node);
     if (type === 'base') return 'Base';
     if (type === 'company') return 'Company';
+    if (type === 'unknown') return 'Unknown';
     return 'Role';
   };
 
@@ -997,11 +1070,23 @@ export default function CareerFlowDiagram() {
     return diagram.connections.filter(conn => visibleNodeIds.has(conn.from) && visibleNodeIds.has(conn.to));
   }, [visibleNodes, diagram.connections]);
 
+  const handleContainerClick = (e) => {
+    // Only deselect if clicking on the container itself, not on child elements
+    if (e.target === e.currentTarget) {
+      setDiagram(prev => ({ 
+        ...prev, 
+        selectedNodes: new Set(), 
+        selectedNode: null 
+      }));
+    }
+  };
+
   return (
     <div 
       className="relative w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onClick={handleContainerClick}
     >
       <InfoPanel />
       <ControlPanel 
@@ -1054,8 +1139,15 @@ export default function CareerFlowDiagram() {
         return (
           <>
             {/* Scrollable Canvas */}
-            <div className="absolute inset-0 overflow-auto py-16 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              <div className="relative" style={{ minHeight: '100%', minWidth: '100%', width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
+            <div 
+              className="absolute inset-0 overflow-auto py-16 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
+              onClick={handleContainerClick}
+            >
+              <div 
+                className="relative" 
+                style={{ minHeight: '100%', minWidth: '100%', width: `${canvasWidth}px`, height: `${canvasHeight}px` }}
+                onClick={handleContainerClick}
+              >
                 {/* SVG for connections */}
                 <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
             <defs>
