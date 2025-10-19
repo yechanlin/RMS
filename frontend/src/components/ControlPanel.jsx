@@ -661,32 +661,30 @@ export default function ControlPanel({
               <Stack gap="xs">
                 <LoadingButton
                   fullWidth
-                  color="violet"
-                  onClick={() => {
+                  color="orange"
+                  onClick={async () => {
                     const node = nodes.find(n => n.id === selectedNode);
-                    if (node && node.backendData && node.backendData.file_path) {
-                      const resumeUrl = `http://localhost:8000/media/${node.backendData.file_path}`;
-                      setResumeUrl(resumeUrl);
-                      setShowResumePopup(true);
+                    if (node && node.backendData && node.backendData.tailored_content) {
+                      // Show the LaTeX code in the plain text modal
+                      setPlainTextContent(node.backendData.tailored_content);
+                      setPlainTextFilename(`LaTeX Code - ${node.label || 'Tailored Resume'}`);
+                      setShowPlainTextPopup(true);
+                    } else if (node && node.backendData && node.backendData.file_path) {
+                      // If tailored_content is not available, fetch the .tex file
+                      try {
+                        const response = await fetch(`http://localhost:8000/media/${node.backendData.file_path}`);
+                        const latexCode = await response.text();
+                        setPlainTextContent(latexCode);
+                        setPlainTextFilename(`LaTeX Code - ${node.label || 'Tailored Resume'}`);
+                        setShowPlainTextPopup(true);
+                      } catch (error) {
+                        console.error('Failed to fetch LaTeX code:', error);
+                        setError('Failed to load LaTeX code');
+                      }
                     }
                   }}
                 >
-                  Preview
-                </LoadingButton>
-                <LoadingButton
-                  fullWidth
-                  color="green"
-                  onClick={() => {
-                    const node = nodes.find(n => n.id === selectedNode);
-                    if (node && node.backendData && node.backendData.file_path) {
-                      const link = document.createElement('a');
-                      link.href = `http://localhost:8000/media/${node.backendData.file_path}`;
-                      link.target = '_blank';
-                      link.click();
-                    }
-                  }}
-                >
-                  View in new tab
+                  View LaTeX Code
                 </LoadingButton>
                 <LoadingButton
                   fullWidth
@@ -700,7 +698,7 @@ export default function ControlPanel({
                         const url = window.URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = url;
-                        link.download = 'tailored_resume.pdf';
+                        link.download = `tailored_resume_${node.label || 'resume'}.tex`;
                         link.style.display = 'none';
                         document.body.appendChild(link);
                         link.click();
@@ -708,12 +706,12 @@ export default function ControlPanel({
                         window.URL.revokeObjectURL(url);
                       } catch (error) {
                         console.error('Download failed:', error);
-                        setError('Failed to download resume');
+                        setError('Failed to download LaTeX file');
                       }
                     }
                   }}
                 >
-                  Download Resume
+                  Download LaTeX File
                 </LoadingButton>
                 <LoadingButton
                   fullWidth

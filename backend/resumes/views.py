@@ -9,12 +9,6 @@ import PyPDF2
 import io
 from openai import OpenAI
 from datetime import datetime
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from .models import BaseCV, TailoredResume
 from .serializers import BaseCVSerializer, BaseCVUploadSerializer, TailorResumeSerializer, TailoredResumeSerializer as TailoredResumeModelSerializer
 from jobs.models import Job
@@ -259,34 +253,52 @@ class BaseCVViewSet(viewsets.ModelViewSet):
             http_client = httpx.Client()
             client = OpenAI(api_key=settings.OPENAI_API_KEY, http_client=http_client)
             
-            # System prompt for resume tailoring
-            system_prompt = """You are an expert resume writer. Create a concise, ATS-friendly, single-page resume tailored to the target role and company, based on the format of the candidate's CV, using keywords from the job description and the candidate's CV. Keep it within one page, prioritize relevant achievements with quantified impact, and use clean sections.
+            # Load the LaTeX template
+            template_path = os.path.join(settings.BASE_DIR, 'resume_template.tex')
+            with open(template_path, 'r', encoding='utf-8') as f:
+                latex_template = f.read()
+            
+            # System prompt for resume tailoring with LaTeX template
+            system_prompt = f"""You are an expert resume writer and LaTeX specialist. You will tailor a resume to a specific job and company, then output the complete LaTeX code using the provided template.
 
-Instructions:
-- Output ONLY the final resume text (no commentary).
-- Keep it to one page.
-- Use strong, quantified bullet points where possible.
-- Emphasize keywords from the job description.
-- Include sections like Summary, Skills, Experience, Education (and Projects if relevant).
-- Remove irrelevant details."""
+TASK:
+1. Analyze the candidate's CV and job description
+2. Tailor the content to match the job requirements 
+3. Fill in the LaTeX template with the tailored content
+4. Output ONLY the complete LaTeX code (no commentary)
+
+TEMPLATE TO USE:
+{latex_template}
+
+INSTRUCTIONS:
+- Replace ALL placeholder content with actual tailored information
+- Use the candidate's real name, contact info, and details
+- Tailor objective/summary to the specific role and company
+- Include only relevant sections (remove Publications if not needed for the role)
+- Emphasize keywords from the job description
+- Keep achievements quantified where possible
+- Ensure all LaTeX syntax is correct and complete
+- Output the FULL LaTeX document ready for compilation"""
             
             # User prompt with CV text and job description
-            user_prompt = f"""Target Company: {company}
+            user_prompt = f"""TARGET COMPANY: {company}
 
-Job Description:
+JOB DESCRIPTION:
 {job_description}
 
-Candidate's Current CV:
+CANDIDATE'S CURRENT CV:
 {cv_text}"""
 
             # Add additional feedback if provided
             if additional_feedback and additional_feedback.strip():
                 user_prompt += f"""
 
-Additional Feedback for this version:
+ADDITIONAL FEEDBACK FOR THIS VERSION:
 {additional_feedback.strip()}"""
 
-            user_prompt += "\n\nPlease create a tailored resume for this position."
+            user_prompt += """
+
+Please create a complete LaTeX resume document using the provided template. Fill in ALL sections with relevant, tailored content. Remove sections like Publications if they're not relevant to this role. Ensure the LaTeX code is complete and ready for compilation."""
             
             # Call OpenAI API using the new format
             response = client.chat.completions.create(
@@ -295,7 +307,7 @@ Additional Feedback for this version:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=2000,
+                max_tokens=4000,  # Increased for LaTeX code
                 temperature=0.3
             )
             
@@ -305,7 +317,7 @@ Additional Feedback for this version:
             raise ValueError(f"OpenAI API call failed: {str(e)}")
     
     def _save_tailored_resume(self, tailored_resume, company):
-        """Save tailored resume to a professionally formatted PDF file"""
+        """Save tailored resume as LaTeX code (.tex file)"""
         try:
             # Create tailored_resumes directory if it doesn't exist
             tailored_resumes_dir = os.path.join(settings.MEDIA_ROOT, 'tailored_resumes')
@@ -315,341 +327,19 @@ Additional Feedback for this version:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_company = "".join(c for c in company if c.isalnum() or c in (' ', '-', '_')).rstrip()
             safe_company = safe_company.replace(' ', '_')
-            filename = f"tailored_resume_{safe_company}_{timestamp}.pdf"
+            filename = f"tailored_resume_{safe_company}_{timestamp}.tex"
             
-            # Create PDF file with margins
+            # Save LaTeX code as .tex file
             file_path = os.path.join(tailored_resumes_dir, filename)
-            doc = SimpleDocTemplate(
-                file_path, 
-                pagesize=letter,
-                rightMargin=0.75*inch,
-                leftMargin=0.75*inch,
-                topMargin=0.75*inch,
-                bottomMargin=0.75*inch
-            )
-            
-            # Create professional styles
-            name_style = ParagraphStyle(
-                'NameStyle',
-                fontSize=20,
-                textColor=colors.HexColor('#2E4057'),
-                spaceAfter=4,
-                alignment=TA_CENTER,
-                fontName='Helvetica-Bold'
-            )
-            
-            contact_style = ParagraphStyle(
-                'ContactStyle',
-                fontSize=10,
-                textColor=colors.HexColor('#666666'),
-                spaceAfter=20,
-                alignment=TA_CENTER,
-                fontName='Helvetica'
-            )
-            
-            section_header_style = ParagraphStyle(
-                'SectionHeaderStyle',
-                fontSize=14,
-                textColor=colors.HexColor('#2E4057'),
-                spaceAfter=8,
-                spaceBefore=16,
-                fontName='Helvetica-Bold',
-                borderWidth=0,
-                borderColor=colors.HexColor('#2E4057'),
-                underlineProportion=0.3,
-                underlineGap=2
-            )
-            
-            subsection_style = ParagraphStyle(
-                'SubsectionStyle',
-                fontSize=11,
-                textColor=colors.black,
-                spaceAfter=4,
-                spaceBefore=8,
-                fontName='Helvetica-Bold'
-            )
-            
-            body_style = ParagraphStyle(
-                'BodyStyle',
-                fontSize=10,
-                textColor=colors.black,
-                spaceAfter=6,
-                leading=14,
-                fontName='Helvetica',
-                alignment=TA_JUSTIFY
-            )
-            
-            bullet_style = ParagraphStyle(
-                'BulletStyle',
-                fontSize=10,
-                textColor=colors.black,
-                spaceAfter=4,
-                leading=14,
-                fontName='Helvetica',
-                leftIndent=20,
-                bulletIndent=10
-            )
-            
-            # Parse the tailored resume text into structured sections
-            story = []
-            lines = [line.strip() for line in tailored_resume.split('\n')]
-            
-            # Extract structured information
-            sections = self._parse_resume_sections(lines)
-            
-            # Build the PDF with professional formatting
-            
-            # Header - Name and Contact Info
-            if 'name' in sections:
-                story.append(Paragraph(sections['name'], name_style))
-            
-            if 'contact' in sections:
-                contact_info = ' | '.join(sections['contact'])
-                story.append(Paragraph(contact_info, contact_style))
-            
-            # Professional Summary
-            if 'summary' in sections:
-                story.append(Paragraph('<u>PROFESSIONAL SUMMARY</u>', section_header_style))
-                summary_text = ' '.join(sections['summary'])
-                story.append(Paragraph(summary_text, body_style))
-            
-            # Skills Section with organized layout
-            if 'skills' in sections:
-                story.append(Paragraph('<u>CORE COMPETENCIES</u>', section_header_style))
-                skills_text = ', '.join(sections['skills'])
-                story.append(Paragraph(skills_text, body_style))
-            
-            # Experience Section with proper formatting
-            if 'experience' in sections:
-                story.append(Paragraph('<u>PROFESSIONAL EXPERIENCE</u>', section_header_style))
-                for exp in sections['experience']:
-                    if 'title' in exp and 'company' in exp:
-                        title_company = f"<b>{exp['title']}</b> | {exp['company']}"
-                        if 'dates' in exp:
-                            title_company += f" | {exp['dates']}"
-                        story.append(Paragraph(title_company, subsection_style))
-                    
-                    if 'description' in exp:
-                        for bullet in exp['description']:
-                            story.append(Paragraph(f"• {bullet}", bullet_style))
-                    
-                    story.append(Spacer(1, 6))
-            
-            # Education Section
-            if 'education' in sections:
-                story.append(Paragraph('<u>EDUCATION</u>', section_header_style))
-                for edu in sections['education']:
-                    edu_text = f"<b>{edu.get('degree', '')}</b>"
-                    if 'school' in edu:
-                        edu_text += f" | {edu['school']}"
-                    if 'year' in edu:
-                        edu_text += f" | {edu['year']}"
-                    story.append(Paragraph(edu_text, body_style))
-            
-            # Projects Section
-            if 'projects' in sections:
-                story.append(Paragraph('<u>KEY PROJECTS</u>', section_header_style))
-                for project in sections['projects']:
-                    if isinstance(project, dict):
-                        if 'name' in project:
-                            story.append(Paragraph(f"<b>{project['name']}</b>", subsection_style))
-                        if 'description' in project:
-                            for desc in project['description']:
-                                story.append(Paragraph(f"• {desc}", bullet_style))
-                    else:
-                        story.append(Paragraph(f"• {project}", bullet_style))
-            
-            # Additional sections (Certifications, etc.)
-            for section_name, section_content in sections.items():
-                if section_name not in ['name', 'contact', 'summary', 'skills', 'experience', 'education', 'projects']:
-                    story.append(Paragraph(f'<u>{section_name.upper()}</u>', section_header_style))
-                    if isinstance(section_content, list):
-                        for item in section_content:
-                            story.append(Paragraph(f"• {item}", bullet_style))
-                    else:
-                        story.append(Paragraph(str(section_content), body_style))
-            
-            # Build PDF
-            doc.build(story)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(tailored_resume)
             
             # Return relative path for API response
             return os.path.join('tailored_resumes', filename)
             
         except Exception as e:
             raise ValueError(f"Failed to save tailored resume: {str(e)}")
-    
-    def _parse_resume_sections(self, lines):
-        """Parse resume text into structured sections"""
-        sections = {}
-        current_section = None
-        current_content = []
-        
-        # Common section keywords
-        section_keywords = {
-            'summary': ['summary', 'profile', 'objective', 'overview'],
-            'experience': ['experience', 'work', 'employment', 'career'],
-            'education': ['education', 'academic', 'degree'],
-            'skills': ['skills', 'competencies', 'technologies', 'technical'],
-            'projects': ['projects', 'portfolio'],
-            'certifications': ['certifications', 'certificates', 'licenses']
-        }
-        
-        name_found = False
-        contact_info = []
-        
-        for i, line in enumerate(lines):
-            if not line:
-                continue
-            
-            # First non-empty line is likely the name
-            if not name_found and line and not any(keyword in line.lower() for keywords in section_keywords.values() for keyword in keywords):
-                sections['name'] = line
-                name_found = True
-                continue
-            
-            # Detect contact information (email, phone, address)
-            if not current_section and (
-                '@' in line or 
-                any(char.isdigit() for char in line) and ('(' in line or '-' in line) or
-                any(word in line.lower() for word in ['street', 'ave', 'rd', 'blvd', 'city', 'state'])
-            ):
-                contact_info.append(line)
-                continue
-            
-            # Detect section headers
-            is_section_header = False
-            for section, keywords in section_keywords.items():
-                if any(keyword in line.lower() for keyword in keywords) and (line.isupper() or line.startswith('**') or len(line.split()) <= 3):
-                    # Save previous section
-                    if current_section and current_content:
-                        sections[current_section] = self._process_section_content(current_section, current_content)
-                    
-                    current_section = section
-                    current_content = []
-                    is_section_header = True
-                    break
-            
-            if not is_section_header:
-                if current_section:
-                    current_content.append(line)
-                elif contact_info:
-                    # If we have contact info, this might be additional contact details
-                    if len(contact_info) < 3:  # Limit contact info lines
-                        contact_info.append(line)
-        
-        # Save the last section
-        if current_section and current_content:
-            sections[current_section] = self._process_section_content(current_section, current_content)
-        
-        # Add contact info if found
-        if contact_info:
-            sections['contact'] = contact_info
-        
-        return sections
-    
-    def _process_section_content(self, section_type, content):
-        """Process content based on section type"""
-        if section_type == 'experience':
-            return self._parse_experience_entries(content)
-        elif section_type == 'education':
-            return self._parse_education_entries(content)
-        elif section_type == 'projects':
-            return self._parse_project_entries(content)
-        elif section_type == 'skills':
-            # Join skills and split by common delimiters
-            skills_text = ' '.join(content)
-            skills = [skill.strip() for skill in skills_text.replace('•', ',').replace('-', ',').split(',') if skill.strip()]
-            return skills
-        else:
-            # For summary and other sections, return as list
-            return content
-    
-    def _parse_experience_entries(self, content):
-        """Parse experience section into structured entries"""
-        entries = []
-        current_entry = {}
-        
-        for line in content:
-            # Check if line contains job title and company (usually bold or structured)
-            if '|' in line or (' at ' in line and not line.startswith('•') and not line.startswith('-')):
-                # Save previous entry
-                if current_entry:
-                    entries.append(current_entry)
-                
-                # Parse new entry
-                current_entry = {}
-                parts = line.split('|') if '|' in line else line.split(' at ')
-                current_entry['title'] = parts[0].strip()
-                if len(parts) > 1:
-                    company_and_date = parts[1].strip()
-                    # Try to extract dates (look for years)
-                    import re
-                    date_pattern = r'\d{4}[-–]\d{4}|\d{4}[-–]Present|Present|\d{4}'
-                    dates = re.findall(date_pattern, company_and_date)
-                    if dates:
-                        current_entry['dates'] = dates[0]
-                        current_entry['company'] = re.sub(date_pattern, '', company_and_date).strip(' |-')
-                    else:
-                        current_entry['company'] = company_and_date
-            elif line.startswith('•') or line.startswith('-') or line.startswith('*'):
-                # Bullet point - add to current entry description
-                if 'description' not in current_entry:
-                    current_entry['description'] = []
-                bullet_text = line.lstrip('•-* ').strip()
-                if bullet_text:
-                    current_entry['description'].append(bullet_text)
-            elif current_entry and not line.strip().isupper():
-                # Continuation of description or additional info
-                if 'description' not in current_entry:
-                    current_entry['description'] = []
-                current_entry['description'].append(line)
-        
-        # Add last entry
-        if current_entry:
-            entries.append(current_entry)
-        
-        return entries
-    
-    def _parse_education_entries(self, content):
-        """Parse education section"""
-        entries = []
-        for line in content:
-            if line and not line.startswith('•'):
-                entry = {}
-                # Try to parse degree | school | year format
-                if '|' in line:
-                    parts = [part.strip() for part in line.split('|')]
-                    entry['degree'] = parts[0]
-                    if len(parts) > 1:
-                        entry['school'] = parts[1]
-                    if len(parts) > 2:
-                        entry['year'] = parts[2]
-                else:
-                    entry['degree'] = line
-                entries.append(entry)
-        return entries
-    
-    def _parse_project_entries(self, content):
-        """Parse projects section"""
-        entries = []
-        current_project = {}
-        
-        for line in content:
-            if not line.startswith('•') and not line.startswith('-') and line:
-                # New project
-                if current_project:
-                    entries.append(current_project)
-                current_project = {'name': line, 'description': []}
-            elif (line.startswith('•') or line.startswith('-')) and current_project:
-                # Project description
-                desc = line.lstrip('•- ').strip()
-                if desc:
-                    current_project['description'].append(desc)
-        
-        if current_project:
-            entries.append(current_project)
-        
-        return entries
+
 
 class TailoredResumeViewSet(viewsets.ModelViewSet):
     """ViewSet for retrieving and managing tailored resumes"""
