@@ -1,30 +1,43 @@
 import React, { useState } from 'react';
+import {
+  Container,
+  Paper,
+  Title,
+  Stack,
+  Group,
+  FileInput,
+  TextInput,
+  Textarea,
+  Button,
+  Alert,
+  Box,
+  Text,
+  Code,
+} from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { notifications } from '@mantine/notifications';
+import { FaUpload, FaExclamationTriangle, FaCheck, FaDownload, FaEye } from 'react-icons/fa';
 import axios from 'axios';
 
 const TailorResumeForm = () => {
-  const [formData, setFormData] = useState({
-    cv: null,
-    company: '',
-    job_description: ''
-  });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, cv: file }));
-    }
-  };
+  const form = useForm({
+    initialValues: {
+      cv: null,
+      company: '',
+      job_description: ''
+    },
+    validate: {
+      cv: (value) => (value ? null : 'Please upload your CV'),
+      company: (value) => (value ? null : 'Please enter company name'),
+      job_description: (value) => (value ? null : 'Please enter job description'),
+    },
+  });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (values) => {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -32,9 +45,9 @@ const TailorResumeForm = () => {
     try {
       // Create FormData for file upload
       const formDataToSend = new FormData();
-      formDataToSend.append('cv', formData.cv);
-      formDataToSend.append('company', formData.company);
-      formDataToSend.append('job_description', formData.job_description);
+      formDataToSend.append('cv', values.cv);
+      formDataToSend.append('company', values.company);
+      formDataToSend.append('job_description', values.job_description);
 
       // Make API call
       const response = await axios.post(
@@ -48,8 +61,21 @@ const TailorResumeForm = () => {
       );
 
       setResult(response.data);
+      notifications.show({
+        title: 'Success!',
+        message: 'Resume tailored successfully',
+        color: 'green',
+        icon: <FaCheck size={16} />,
+      });
     } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred while tailoring the resume');
+      const errorMessage = err.response?.data?.error || 'An error occurred while tailoring the resume';
+      setError(errorMessage);
+      notifications.show({
+        title: 'Error',
+        message: errorMessage,
+        color: 'red',
+        icon: <FaExclamationTriangle size={16} />,
+      });
     } finally {
       setLoading(false);
     }
@@ -59,105 +85,151 @@ const TailorResumeForm = () => {
     if (result?.file_path) {
       const downloadUrl = `http://localhost:8000/media/${result.file_path}`;
       window.open(downloadUrl, '_blank');
+      notifications.show({
+        title: 'Download Started',
+        message: 'Your tailored resume is being downloaded',
+        color: 'blue',
+        icon: <FaDownload size={16} />,
+      });
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Tailor Your Resume</h2>
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* CV Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Your CV (PDF or TXT)
-          </label>
-          <input
-            type="file"
-            accept=".pdf,.txt"
-            onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            required
-          />
-        </div>
+    <Container size="lg" py="xl">
+      <Paper radius="lg" p="xl" withBorder>
+        <Title order={2} ta="center" mb="xl" c="blue">
+          Tailor Your Resume
+        </Title>
+        
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack gap="lg">
+            {/* CV Upload */}
+            <Box>
+              <FileInput
+                label="Upload Your CV"
+                placeholder="Choose PDF, DOC, DOCX, or TXT file"
+                accept=".pdf,.doc,.docx,.txt"
+                leftSection={<FaUpload size={16} />}
+                required
+                {...form.getInputProps('cv')}
+              />
+              <Text size="xs" c="dimmed" mt="xs">
+                Supported formats: PDF, DOC, DOCX, TXT
+              </Text>
+            </Box>
 
-        {/* Company Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Target Company
-          </label>
-          <input
-            type="text"
-            name="company"
-            value={formData.company}
-            onChange={handleInputChange}
-            placeholder="e.g., Google, Microsoft, Amazon"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
+            {/* Company Name */}
+            <TextInput
+              label="Target Company"
+              placeholder="e.g., Google, Microsoft, Amazon"
+              required
+              {...form.getInputProps('company')}
+            />
 
-        {/* Job Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Job Description
-          </label>
-          <textarea
-            name="job_description"
-            value={formData.job_description}
-            onChange={handleInputChange}
-            placeholder="Paste the full job description here..."
-            rows={8}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
+            {/* Job Description */}
+            <Textarea
+              label="Job Description"
+              placeholder="Paste the full job description here..."
+              minRows={8}
+              required
+              {...form.getInputProps('job_description')}
+            />
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={loading || !formData.cv || !formData.company || !formData.job_description}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Tailoring Resume...' : 'Tailor Resume'}
-        </button>
-      </form>
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              size="lg"
+              loading={loading}
+              disabled={!form.isValid()}
+              fullWidth
+              leftSection={loading ? null : <FaUpload size={18} />}
+            >
+              {loading ? 'Tailoring Resume...' : 'Tailor Resume'}
+            </Button>
+          </Stack>
+        </form>
 
-      {/* Error Display */}
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
-
-      {/* Result Display */}
-      {result && (
-        <div className="mt-6 space-y-4 flex">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-green-800 font-medium">{result.message}</p>
-            <p className="text-green-700 text-sm">Company: {result.company}</p>
-          </div>
-
-          {/* Download Button */}
-          <button
-            onClick={downloadTailoredResume}
-            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
+        {/* Error Display */}
+        {error && (
+          <Alert
+            icon={<FaExclamationTriangle size={16} />}
+            color="red"
+            mt="lg"
+            onClose={() => setError(null)}
+            withCloseButton
           >
-            Download Tailored Resume
-          </button>
+            {error}
+          </Alert>
+        )}
 
-          {/* Tailored Resume Preview */}
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Tailored Resume Preview:</h3>
-            <div className="bg-gray-50 p-4 rounded-md max-h-96 overflow-y-auto">
-              <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
-                {result.tailored_resume}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        {/* Result Display */}
+        {result && (
+          <Box mt="xl">
+            <Stack gap="md">
+              <Alert
+                icon={<FaCheck size={16} />}
+                color="green"
+                variant="filled"
+              >
+                <Text fw={500}>{result.message}</Text>
+                <Text size="sm">Company: {result.company}</Text>
+              </Alert>
+
+              {/* Action Buttons */}
+              <Group>
+                <Button
+                  leftSection={<FaDownload size={16} />}
+                  onClick={downloadTailoredResume}
+                  color="green"
+                >
+                  Download Tailored Resume
+                </Button>
+                <Button
+                  leftSection={<FaEye size={16} />}
+                  variant="outline"
+                  onClick={() => {
+                    if (result?.file_path) {
+                      const previewUrl = `http://localhost:8000/media/${result.file_path}`;
+                      window.open(previewUrl, '_blank');
+                    }
+                  }}
+                >
+                  Preview
+                </Button>
+              </Group>
+
+              {/* Tailored Resume Preview */}
+              <Box>
+                <Title order={4} mb="sm">Tailored Resume Preview:</Title>
+                <Paper
+                  p="md"
+                  withBorder
+                  style={{
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    backgroundColor: 'var(--mantine-color-gray-0)',
+                  }}
+                >
+                  <Code
+                    block
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      fontSize: '0.875rem',
+                      fontFamily: 'monospace',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                  >
+                    {result.tailored_resume}
+                  </Code>
+                </Paper>
+              </Box>
+            </Stack>
+          </Box>
+        )}
+      </Paper>
+    </Container>
   );
 };
 

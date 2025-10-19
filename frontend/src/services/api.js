@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8001/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 class ApiService {
   constructor() {
@@ -26,6 +26,19 @@ class ApiService {
             errorMessage = errorData.error;
           } else if (errorData.detail) {
             errorMessage = errorData.detail;
+          } else if (errorData.name && Array.isArray(errorData.name)) {
+            // Handle Django REST framework field validation errors
+            errorMessage = errorData.name[0];
+          } else if (errorData.name && typeof errorData.name === 'string') {
+            errorMessage = errorData.name;
+          } else if (typeof errorData === 'object') {
+            // Handle generic validation errors
+            const firstError = Object.values(errorData)[0];
+            if (Array.isArray(firstError)) {
+              errorMessage = firstError[0];
+            } else if (typeof firstError === 'string') {
+              errorMessage = firstError;
+            }
           }
         } catch (e) {
           // If we can't parse JSON, use the status text
@@ -151,17 +164,48 @@ class ApiService {
     return this.request('/resumes/base-cv/stats/');
   }
 
-  // Tailor resume API
-  async tailorResume({ cv, company, job_description }) {
+  async extractCVText(id) {
+    return this.request(`/resumes/base-cv/${id}/extract_text/`);
+  }
+
+  async updateCVText(id, text) {
     const formData = new FormData();
-    formData.append('cv', cv);
+    formData.append('text', text);
+
+    return this.request(`/resumes/base-cv/${id}/update_text/`, {
+      method: 'POST',
+      headers: {}, // Remove Content-Type header to let browser set it for FormData
+      body: formData,
+    });
+  }
+
+  // Tailor resume API
+  async tailorResume({ cv, cv_text, company, job_description, additional_feedback }) {
+    const formData = new FormData();
+    
+    // Add either cv file or cv_text, but not both
+    if (cv_text) {
+      formData.append('cv_text', cv_text);
+    } else if (cv) {
+      formData.append('cv', cv);
+    } else {
+      throw new Error('Either cv file or cv_text must be provided');
+    }
+    
     formData.append('company', company);
     formData.append('job_description', job_description);
+    
+    // Add additional feedback if provided
+    if (additional_feedback) {
+      formData.append('additional_feedback', additional_feedback);
+    }
 
     console.log('Tailor resume request:', {
       cv: cv?.name || 'No file',
+      cv_text: cv_text ? cv_text.substring(0, 100) + '...' : 'No text',
       company,
-      job_description: job_description?.substring(0, 100) + '...'
+      job_description: job_description?.substring(0, 100) + '...',
+      additional_feedback: additional_feedback ? additional_feedback.substring(0, 50) + '...' : 'None'
     });
 
     return this.request('/resumes/tailor-resume/', {
@@ -176,6 +220,12 @@ class ApiService {
     const url = jobId ? `/resumes/tailored-resumes/?job_id=${jobId}` : '/resumes/tailored-resumes/';
     const response = await this.request(url);
     return response.results || response;
+  }
+
+  async deleteTailoredResume(id) {
+    return this.request(`/resumes/tailored-resumes/${id}/`, {
+      method: 'DELETE',
+    });
   }
 }
 
