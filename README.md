@@ -28,11 +28,6 @@ Traditional resume builders force users through complicated wizards and template
 - **Smart Tailoring**: Let AI handle the intelligent customization based on job requirements
 - **One Master Document**: Upload once, generate focused variations as needed
 
-### 🔗 Project Links
-- [DevPost](https://devpost.com/software/rms-resume-management-system?ref_content=user-portfolio&ref_feature=in_progress)
-- [Demo Video](https://www.youtube.com/watch?v=Zsg2mRJl0GA)
-- [GitHub Repository](https://github.com/yechanlin/RMS)
-
 ## 🏗️ Architecture
 
 ```
