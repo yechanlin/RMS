@@ -97,6 +97,40 @@ export default function ControlPanel({
     );
   };
 
+  // Utility function to open LaTeX code in Overleaf
+  const openInOverleaf = (latexCode, filename = 'resume.tex') => {
+    const encodedCode = encodeURIComponent(latexCode);
+    const overleafUrl = `https://www.overleaf.com/docs?snip_uri=data:application/x-tex;charset=utf-8,${encodedCode}&snip_name=${filename}`;
+    
+    // Check URL length limit (browsers typically support ~8000 chars)
+    if (overleafUrl.length < 8000) {
+      // Use simple URL method for shorter code
+      window.open(overleafUrl, '_blank');
+    } else {
+      // Use form submission for longer code
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://www.overleaf.com/docs';
+      form.target = '_blank';
+      
+      const fileInput = document.createElement('input');
+      fileInput.type = 'hidden';
+      fileInput.name = 'snip_uri';
+      fileInput.value = `data:application/x-tex;charset=utf-8,${encodedCode}`;
+      
+      const nameInput = document.createElement('input');
+      nameInput.type = 'hidden';
+      nameInput.name = 'snip_name';
+      nameInput.value = filename;
+      
+      form.appendChild(fileInput);
+      form.appendChild(nameInput);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    }
+  };
+
   const handleCVUpload = async (file) => {
     if (!file) return;
     
@@ -712,6 +746,37 @@ export default function ControlPanel({
                   }}
                 >
                   Download LaTeX File
+                </LoadingButton>
+                <LoadingButton
+                  fullWidth
+                  color="green"
+                  onClick={async () => {
+                    const node = nodes.find(n => n.id === selectedNode);
+                    let latexCode = '';
+                    
+                    // Get LaTeX code from node data or file
+                    if (node && node.backendData && node.backendData.tailored_content) {
+                      latexCode = node.backendData.tailored_content;
+                    } else if (node && node.backendData && node.backendData.file_path) {
+                      try {
+                        const response = await fetch(`http://localhost:8000/media/${node.backendData.file_path}`);
+                        latexCode = await response.text();
+                      } catch (error) {
+                        console.error('Failed to fetch LaTeX code:', error);
+                        setError('Failed to load LaTeX code for Overleaf');
+                        return;
+                      }
+                    }
+                    
+                    if (latexCode) {
+                      const filename = `resume_${node.label || 'tailored'}.tex`;
+                      openInOverleaf(latexCode, filename);
+                    } else {
+                      setError('No LaTeX code found');
+                    }
+                  }}
+                >
+                  Open in Overleaf
                 </LoadingButton>
                 <LoadingButton
                   fullWidth

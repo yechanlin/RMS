@@ -261,11 +261,13 @@ class BaseCVViewSet(viewsets.ModelViewSet):
             # System prompt for resume tailoring with LaTeX template
             system_prompt = f"""You are an expert resume writer and LaTeX specialist. You will tailor a resume to a specific job and company, then output the complete LaTeX code using the provided template.
 
+CRITICAL: Output ONLY raw LaTeX code. Do NOT use markdown formatting, code blocks, or any wrapping. Start directly with \\documentclass and end with \\end{{document}}.
+
 TASK:
 1. Analyze the candidate's CV and job description
 2. Tailor the content to match the job requirements 
 3. Fill in the LaTeX template with the tailored content
-4. Output ONLY the complete LaTeX code (no commentary)
+4. Output ONLY the complete LaTeX code (no commentary, no markdown, no code blocks)
 
 TEMPLATE TO USE:
 {latex_template}
@@ -278,7 +280,8 @@ INSTRUCTIONS:
 - Emphasize keywords from the job description
 - Keep achievements quantified where possible
 - Ensure all LaTeX syntax is correct and complete
-- Output the FULL LaTeX document ready for compilation"""
+- Output the FULL LaTeX document ready for compilation
+- DO NOT wrap in ```latex or ``` - output pure LaTeX code only"""
             
             # User prompt with CV text and job description
             user_prompt = f"""TARGET COMPANY: {company}
@@ -298,7 +301,9 @@ ADDITIONAL FEEDBACK FOR THIS VERSION:
 
             user_prompt += """
 
-Please create a complete LaTeX resume document using the provided template. Fill in ALL sections with relevant, tailored content. Remove sections like Publications if they're not relevant to this role. Ensure the LaTeX code is complete and ready for compilation."""
+Please create a complete LaTeX resume document using the provided template. Fill in ALL sections with relevant, tailored content. Remove sections like Publications if they're not relevant to this role. 
+
+IMPORTANT: Output ONLY the raw LaTeX code starting with \\documentclass and ending with \\end{document}. Do NOT use markdown code blocks or any formatting."""
             
             # Call OpenAI API using the new format
             response = client.chat.completions.create(
@@ -311,10 +316,44 @@ Please create a complete LaTeX resume document using the provided template. Fill
                 temperature=0.3
             )
             
-            return response.choices[0].message.content.strip()
+            # Clean the response to remove any markdown formatting
+            latex_code = response.choices[0].message.content.strip()
+            cleaned_latex = self._clean_latex_code(latex_code)
+            
+            return cleaned_latex
             
         except Exception as e:
             raise ValueError(f"OpenAI API call failed: {str(e)}")
+    
+    def _clean_latex_code(self, latex_code):
+        """Clean LaTeX code by removing markdown formatting and unwanted content"""
+        # Remove markdown code blocks
+        if latex_code.startswith('```latex'):
+            latex_code = latex_code[8:]  # Remove ```latex
+        elif latex_code.startswith('```'):
+            latex_code = latex_code[3:]   # Remove ```
+        
+        if latex_code.endswith('```'):
+            latex_code = latex_code[:-3]  # Remove trailing ```
+        
+        # Remove any leading/trailing whitespace
+        latex_code = latex_code.strip()
+        
+        # Ensure it starts with \documentclass
+        if not latex_code.startswith('\\documentclass'):
+            # Find the first occurrence of \documentclass and start from there
+            doc_start = latex_code.find('\\documentclass')
+            if doc_start != -1:
+                latex_code = latex_code[doc_start:]
+        
+        # Ensure it ends with \end{document}
+        if not latex_code.rstrip().endswith('\\end{document}'):
+            # Find the last occurrence of \end{document} and end there
+            doc_end = latex_code.rfind('\\end{document}')
+            if doc_end != -1:
+                latex_code = latex_code[:doc_end + len('\\end{document}')]
+        
+        return latex_code
     
     def _save_tailored_resume(self, tailored_resume, company):
         """Save tailored resume as LaTeX code (.tex file)"""

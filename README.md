@@ -14,10 +14,10 @@ RMS is an innovative approach to resume management that combines:
 - **Streamlined Workflow**: From CV upload to tailored resume generation in just a few clicks
 
 ### 👥 Team Members
-- [Ye Chan Lin](https://github.com/yechanlin) - Full Stack Developer
-- [Gaurav Kumar](https://github.com/Gaurav12058) - Backend Developer  
-- [Don D. Le](https://github.com/hilbertcube) - Frontend Developer
-- [Johnny Duong](https://github.com/JohnnyD05) - Frontend Developer
+- [Ye Chan Lin](https://github.com/yechanlin)
+- [Gaurav Kumar](https://github.com/Gaurav12058)
+- [Don D. Le](https://github.com/hilbertcube)
+- [Johnny Duong](https://github.com/JohnnyD05)
 
 ### 💡 Why RMS?
 
