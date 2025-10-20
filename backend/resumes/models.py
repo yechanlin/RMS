@@ -16,6 +16,7 @@ class BaseCV(models.Model):
     filename = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField(help_text="File size in bytes")
     content_type = models.CharField(max_length=100)
+    extracted_text = models.TextField(blank=True, null=True, help_text="Extracted and potentially user-corrected text content")
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

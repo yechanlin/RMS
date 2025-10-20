@@ -19,7 +19,7 @@ class JobSerializer(serializers.ModelSerializer):
         """Ensure job title is not empty and properly formatted"""
         if not value.strip():
             raise serializers.ValidationError("Job title cannot be empty")
-        return value.strip().title()
+        return value.strip()
     
     def validate(self, data):
         """Custom validation for the entire object"""

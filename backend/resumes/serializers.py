@@ -4,7 +4,7 @@ from .models import BaseCV, TailoredResume
 class BaseCVSerializer(serializers.ModelSerializer):
     class Meta:
         model = BaseCV
-        fields = ['id', 'filename', 'file_size', 'content_type', 'uploaded_at', 'updated_at']
+        fields = ['id', 'filename', 'file_size', 'content_type', 'extracted_text', 'uploaded_at', 'updated_at']
         read_only_fields = ['id', 'filename', 'file_size', 'content_type', 'uploaded_at', 'updated_at']
 
 class BaseCVUploadSerializer(serializers.ModelSerializer):
@@ -30,9 +30,24 @@ class BaseCVUploadSerializer(serializers.ModelSerializer):
 
 class TailorResumeSerializer(serializers.Serializer):
     """Serializer for tailoring resume endpoint"""
-    cv = serializers.FileField(help_text="Upload your CV (PDF or TXT)")
+    cv = serializers.FileField(required=False, help_text="Upload your CV (PDF or TXT)")
+    cv_text = serializers.CharField(required=False, help_text="CV text content (alternative to file upload)")
     company = serializers.CharField(max_length=255, help_text="Target company name")
     job_description = serializers.CharField(help_text="Full job description")
+    additional_feedback = serializers.CharField(required=False, allow_blank=True, help_text="Additional feedback for resume tailoring")
+    
+    def validate(self, data):
+        """Ensure either cv file or cv_text is provided, but not both"""
+        cv = data.get('cv')
+        cv_text = data.get('cv_text')
+        
+        if not cv and not cv_text:
+            raise serializers.ValidationError("Either 'cv' file or 'cv_text' must be provided")
+        
+        if cv and cv_text:
+            raise serializers.ValidationError("Provide either 'cv' file or 'cv_text', not both")
+        
+        return data
     
     def validate_cv(self, value):
         """Validate uploaded CV file"""
