@@ -2,7 +2,7 @@
 
 A modern, interactive resume management platform that transforms how job seekers organize and tailor their applications. Built with a visual, graph-based interface that makes managing multiple job applications intuitive and efficient.
 
-![Google](images/image4.png)
+![Google](images/image5.png)
 
 ## 🎯 Project Overview
 
