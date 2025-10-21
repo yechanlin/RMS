@@ -1083,7 +1083,8 @@ export default function CareerFlowDiagram() {
 
   return (
     <div 
-      className="relative w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden"
+      className="relative w-full h-screen overflow-hidden"
+      // bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onClick={handleContainerClick}

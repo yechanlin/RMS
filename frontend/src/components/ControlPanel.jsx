@@ -249,7 +249,7 @@ export default function ControlPanel({
               <FiTarget size={16} />
             </ThemeIcon>
             <Title order={4} size="h5" c="white" className="font-bold tracking-wide">
-              Controls Panel
+              Control Panel
             </Title>
           </Group>
           <Group gap="xs" className="opacity-70 hover:opacity-100 transition-opacity">

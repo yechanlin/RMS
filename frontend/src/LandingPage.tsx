@@ -17,46 +17,81 @@ import {
 import { useForm } from '@mantine/form';
 import { FaGoogle, FaGithub, FaExclamationTriangle } from 'react-icons/fa';
 
-const SocialButton = ({ icon: Icon, text, onClick, color }) => (
-  <Button
-    variant="default"
-    fullWidth
-    leftSection={<Icon size={18} />}
-    onClick={onClick}
-    styles={{
-      root: {
-        backgroundColor: 'var(--mantine-color-dark-6)',
-        border: '1px solid var(--mantine-color-dark-4)',
-        '&:hover': {
-          backgroundColor: color === 'red' ? 'var(--mantine-color-red-9)' : 'var(--mantine-color-dark-5)',
+// Create typed wrapper components for icons that return JSX.Element
+const ExclamationIcon = ({ size }: { size: number }): JSX.Element => {
+  const IconComponent = FaExclamationTriangle as any;
+  return React.createElement(IconComponent, { size });
+};
+
+const GoogleIcon = ({ size }: { size: number }): JSX.Element => {
+  const IconComponent = FaGoogle as any;
+  return React.createElement(IconComponent, { size });
+};
+
+const GitHubIcon = ({ size }: { size: number }): JSX.Element => {
+  const IconComponent = FaGithub as any;
+  return React.createElement(IconComponent, { size });
+};
+
+interface SocialButtonProps {
+  icon: ({ size }: { size: number }) => JSX.Element;
+  text: string;
+  onClick: () => void;
+  color: string;
+}
+
+interface LandingPageProps {
+  onLogin: (email: string, password: string, isRegistering: boolean) => void;
+}
+
+interface FormValues {
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+const SocialButton: React.FC<SocialButtonProps> = ({ icon: Icon, text, onClick, color }) => {
+  return (
+    <Button
+      variant="default"
+      fullWidth
+      leftSection={<Icon size={18} />}
+      onClick={onClick}
+      styles={{
+        root: {
+          backgroundColor: 'var(--mantine-color-dark-6)',
+          border: '1px solid var(--mantine-color-dark-4)',
+          '&:hover': {
+            backgroundColor: color === 'red' ? 'var(--mantine-color-red-9)' : 'var(--mantine-color-dark-5)',
+          },
         },
-      },
-    }}
-  >
-    Continue with {text}
-  </Button>
-);
+      }}
+    >
+      Continue with {text}
+    </Button>
+  );
+};
 
-export default function LandingPage({ onLogin }) {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState('');
+const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
 
-  const form = useForm({
+  const form = useForm<FormValues>({
     initialValues: {
       email: '',
       password: '',
       confirmPassword: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
-      password: (value) => 
+      email: (value: string) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      password: (value: string) => 
         value.length < 8 && isRegistering ? 'Password must be at least 8 characters long' : null,
-      confirmPassword: (value, values) =>
+      confirmPassword: (value: string, values: FormValues) =>
         isRegistering && value !== values.password ? 'Passwords do not match' : null,
     },
   });
 
-  const handleSubmit = (values) => {
+  const handleSubmit = (values: FormValues): void => {
     if (!values.email || !values.password) {
       setError('Please enter both email and password.');
       return;
@@ -66,12 +101,26 @@ export default function LandingPage({ onLogin }) {
     onLogin(values.email, values.password, isRegistering);
   };
 
+  const handleGoogleAuth = (): void => {
+    // Implement Google OAuth
+  };
+
+  const handleGitHubAuth = (): void => {
+    // Implement GitHub OAuth
+  };
+
+  const toggleRegistrationMode = (): void => {
+    setIsRegistering(!isRegistering);
+    setError('');
+    form.reset();
+  };
+
   return (
     <Box
       style={{
         minHeight: '100vh',
         width: '100%',
-        background: 'linear-gradient(135deg, #1e293b 0%, #0a2540 50%, #2563eb 100%)',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #312e81 50%, #1e293b 75%, #111827 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -189,7 +238,7 @@ export default function LandingPage({ onLogin }) {
 
               {error && (
                 <Alert
-                  icon={<FaExclamationTriangle size={16} />}
+                  icon={<ExclamationIcon size={16} />}
                   color="red"
                   variant="filled"
                 >
@@ -226,15 +275,15 @@ export default function LandingPage({ onLogin }) {
 
           <Stack gap="sm">
             <SocialButton
-              icon={FaGoogle}
+              icon={GoogleIcon}
               text="Google"
-              onClick={() => {/* Implement Google OAuth */}}
+              onClick={handleGoogleAuth}
               color="red"
             />
             <SocialButton
-              icon={FaGithub}
+              icon={GitHubIcon}
               text="GitHub"
-              onClick={() => {/* Implement GitHub OAuth */}}
+              onClick={handleGitHubAuth}
               color="dark"
             />
           </Stack>
@@ -247,11 +296,7 @@ export default function LandingPage({ onLogin }) {
               <Button
                 variant="subtle"
                 size="sm"
-                onClick={() => {
-                  setIsRegistering(!isRegistering);
-                  setError('');
-                  form.reset();
-                }}
+                onClick={toggleRegistrationMode}
                 style={{
                   color: 'var(--mantine-color-blue-4)',
                   textDecoration: 'underline',
@@ -272,4 +317,6 @@ export default function LandingPage({ onLogin }) {
       </Container>
     </Box>
   );
-}
+};
+
+export default LandingPage;

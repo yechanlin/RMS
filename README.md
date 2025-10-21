@@ -57,8 +57,6 @@ RMS/
 └──  README.md              # Project documentation
 ```
 
-
-
 ## 🛠️ Tech Stack
 
 ### Frontend Technologies
